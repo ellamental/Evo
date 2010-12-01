@@ -1,0 +1,47 @@
+
+
+
+(define (choice lst)
+  (list-ref lst (random (length lst))))
+
+
+(define args '(x y))
+(define terminals '(0 1 2))
+(define funcs '(+ - *))
+
+(define (get-terminal #!optional type)
+  (if type
+    (choice type)
+    (case (random 10)
+      ((0 1 2 3 4 5 6) 
+        (choice args))
+      ((7 8 9) 
+        (choice terminals)))))
+
+(define (random-expression)
+  (if (> 6 (random 10))
+    (get-terminal)
+    (list (get-terminal funcs) (random-expression) (random-expression))))
+
+(define (random-func)
+  (list 'lambda args (random-expression)))
+
+
+
+(define (eval-func func #!rest args)
+  (condition-case (apply (eval func) args) [(exn) (void)]))
+
+;(eval-func (random-func) 3 4)
+
+
+(define (eval-until test #!optional (counter 0))
+  (define f (random-func))
+  (define r (eval-func f 3 4))
+  (if (equal? r test)
+    (print #\newline f #\newline "Result: " r #\newline "Runs: " counter)
+    (eval-until test (+ counter 1))))
+
+;(eval-until 108)
+
+
+
