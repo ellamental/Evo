@@ -7,16 +7,12 @@
 (use srfi-42)
 
 (define (choice #!rest lst)
-  (define first-choice (list-ref lst (random (length lst))))
-  (list-ref first-choice (random (length first-choice))))
+  (define all (apply append lst))
+  (list-ref all (random (length all))))
+  ;(define first-choice (list-ref lst (random (length lst))))
+  ;(list-ref first-choice (random (length first-choice))))
 
 
-;; Loading and Storing Funcs
-
-(define f '((+ num num)
-             (((3 4) . 7) ((5 7) . 12))
-             ((+ num num) (- num num) (< num num) (> num num) (if t c a))
-             (#t #f 0 1)))
 
 ;; f = '(prototype tests funcs terms best gene-pool fitness-rules)
 (define (func-closure f)
@@ -24,152 +20,197 @@
   (define tests (list-ref f 1))
   (define funcs (list-ref f 2))
   (define terms (list-ref f 3))
-  ;(define best (list-ref f 4))
-  ;(define gene-pool (list-ref f 5))
+  (define gene-pool (list-ref f 4))
+  ;(define best (list-ref f 5))
   ;(define fitness-rules (list-ref f 6))
+  (define num-tests (length tests))
   (define args (cdr prototype))
-  
-  (define get-func "Get a function from the gene-pool, may be multiple procedures")
-  (define store-func "Submits a function for storage in the gene-pool")
+  (define first-test (car tests))
 
+  
+;;   (define (tag-value t)
+;;     (hash-table-ref meta t))
+;;   (define (set-tag tag value)
+;;     (hash-table-set! meta tag value))
+;;   
+  
+  ;;___________________________________________;;
+  ;; Generating Functions
+  ;;___________________________________________;;
   
   (define (random-func)
-    (define (get-term)
-      (choice args terms))
-    (define (get-func)
-      (choice funcs))
-    (define (random-expression)
-      (define (get-expression)
+    (random-function))
+  
+  
+  (define (get-term) (choice args terms))
+  (define (get-func) (choice funcs)) ; also choose from gene-pool
+  
+  (define (random-function)
+    (define (random-expression probability)
+      (if (> (random 100) probability)
+        (get-term)
         (let ((f (get-func)))
           (cons (car f)
-                (list-ec (: i (length (cdr f))) (random-expression)))))
+                (list-ec (: i (length (cdr f))) (random-expression (- probability 10)))))))
+    (list 'lambda args (random-expression 99)))
   
-      (if (> 6 (random 10))
-        (get-term)
-        (get-expression)))
-    (list 'lambda args (random-expression)))
-
+  (define (swap) #f)
+    
+  
+  ;;___________________________________________;;
+  ;; Evaluating and Testing Functions
+  ;;___________________________________________;;
+ 
+  
   (define (eval-func func args)
+    ;(print func #\newline args)
     (condition-case (apply (eval func) args) [(exn) (void)]))
   
-  (define (test f)
-    (if (equal? (eval-func f (caar tests)) (cdar tests)) #t #f))
+  (define (test f test-args test-result)
+    (if (equal? (eval-func f test-args) test-result) #t #f))
+
+  (define (eval-times count)
+    (define test-args (caar tests))
+    (define test-result (cdar tests))
+    (define (eval-loop count)
+      (define f (random-func))
+      (if (= 0 count)
+        (print "Finished")
+        (begin
+          (if (test f test-args test-result) (store f))
+          (eval-loop (- count 1)))))
+    (eval-loop count))
+    
+
   
-  (define (eval-until #!optional (counter 0))
-    (define f (random-func))
-    (if (test f)
-      (print "Success" #\newline f #\newline "Runs: " counter)
-      (eval-until (+ counter 1))))
+  ;;___________________________________________;;
+  ;; Storing and Retrieving Functions
+  ;;___________________________________________;;
+
+  (define (fitness f)
+    ;run all tests determining for each one:
+      ;fitness
+      ;runtime
+      ;memory
+    ;average the runtime, memory-usage and fitness
+    ;calculate the size of the func tree
+    ;return (fitness, runtime, memory, size)
+  ;;For now we'll just return fitness
+    (define correct (length (filter (lambda (t) (test f (car t) (cdr t))) tests)))
+    (/ correct num-tests))
   
-;;   (define (eval-until func-generator test-func success-func #!optional (counter 0))
-;;     (define f (func-generator))
-;;     (if (test-func f)
-;;       (success-func f counter)
-;;       (eval-until func-generator test-func success-func (+ counter 1))))
- 
-  ;(eval-until random-func test success)
   
+  ;; Automatically write all funcs that pass one test to gene-pool
+  ;; if full then must pass two tests to write over function
+  (define (store f)
+    (define fit (fitness f))
+    (if (> fit .3) 
+      (set! gene-pool (cons (cons f fit) gene-pool))))
+
+  (define (write-to-disk)
+    "Write the closure to disk or database")
+  (define (read-from-disk)
+    "Read closure from disk - This involves calling (func-closure name)")
+
+  
+  ;;___________________________________________;;
+  ;; Dispatch
+  ;;___________________________________________;;
+
   (define (dispatch message . arguments)
     (cond ((equal? message 'prototype) prototype)
           ((equal? message 'tests) tests)
           ((equal? message 'funcs) funcs)
           ((equal? message 'terms) terms)
-          ((equal? message 'eval-until) (eval-until))
+          ((equal? message 'gene-pool) gene-pool)
           ((equal? message 'random-func) (random-func))
           ((equal? message 'eval-func) (apply eval-func arguments))
-          ((equal? message 'test) (apply test arguments))))
+          ((equal? message 'test) (apply test arguments))
+          ((equal? message 'eval-times) (apply eval-times arguments))
+          ((equal? message 'fitness) (apply fitness arguments))
+          ((equal? message 'get-func) (get-func))))
   dispatch
 )
 
-(define a (func-closure f))
-(a 'tests)
-(a 'funcs)
-(a 'eval-until)
 
-;; ;(define (generate-func))
+;; Ideal def-module; for now must supply tags for all meta-data (tag name data)
 ;; 
-;; ;(define (random-func args funcs terminals)
-;;   ;; args = '(a b c)
-;;   ;; funcs = '((+ num num) (- num num) (car lst) ...)
-;;   ;; terminals = '(#t #f '() pi)
-;; (define (random-func func)
-;;   (define args (cdr (func 'prototype)))
-;;   (define funcs (func 'funcs))
-;;   (define terms (func 'terms))
-;; 
-;;   (define (get-term)
-;;     (choice args terms))
-;;   (define (get-func)
-;;     (choice funcs))
-;; 
-;;   (define (random-expression)
-;;     (define (get-expression)
-;;       (let ((f (get-func)))
-;;         (cons (car f)
-;;               (list-ec (: i (length (cdr f))) (random-expression)))))
+;; (def-module name
+;;   (function-set terminal-set)
 ;;   
-;;     (if (> 6 (random 10))
-;;       (get-term)
-;;       (get-expression)))
-;; 
-;;   
-;;   (list 'lambda args (random-expression)))
-;; 
-;; 
-;; (define (test-one func)
-;;   ;; (define func "A storage object that contains all the info about a func
-;;   ;;
-;;   (define prototype (func 'prototype))
-;;   (define tests (func 'tests))
-;;   (define funcs (func 'funcs))
-;;   (define terms (func 'terms))
-;;   (define args (cdr prototype))
-;;   
-;; ;;   (define prototype '(> num:1 num:2 num:3))  ;; (func-get prototype)
-;; ;;   (define tests '(((4 3 5) . 4) 
-;; ;;                   ((5 7 10) . =)))
-;; ;;   (define funcs '( (< num num)  (> num num)
-;; ;;                    (= num num)  (car lst)
-;; ;;                    (cdr lst)    (if t c a)))
-;; ;;   (define terminals '(#t #f))
-;; ;;   (define args (cdr prototype))
-;;   
-;;   (define (eval-func func args)
-;;     (condition-case (apply (eval func) args) [(exn) (void)]))
-;; 
-;;   (define (test-once func test)
-;;     ;(print func #\newline (car test) #\newline (cdr test))
-;;     (if (equal? (eval-func func (car test)) (cdr test)) #t #f))
-;;       ;(begin (print 'True) #t)
-;;       ;(begin (print 'False) #f)))
-;;   
-;;   (define (test-rest func)
-;;     (filter (lambda (test) (test-once func test)) tests))
-;;   
-;;   (define (eval-until #!optional (test (car tests)) (counter 0))
-;;     ;(define func (random-func args funcs terms))
-;;     (define f (random-func func))
-;;     (if (test-once f test)
-;;       ;(begin (print "Passed first test at run: " counter)
-;;       ;(print func #\newline (test-rest func))
-;;       (if (test-once f (cadr tests))
-;;         (print "Success!" #\newline func #\newline "Runs: " counter)
-;;         (eval-until test (+ counter 1)))
-;;       (eval-until test (+ counter 1))))
-;;   
-;;   (eval-until)
-;;   
-;;   )
+;;   (def (func-name arg arg-2)
+;;     ("docstring - if the first elem of list is a string it is a docstring
+;;       Other attributes are optional, defaults are used if not supplied.
+;;       This list should be accessed as an a-list, even (docstring string)"
+;;       (tests '(((func-name 3 4) 7)  ;; (name args) test or 
+;;                ((3 4) 7)))          ;; (args) test are both appropriate
+;;       (funcs (+ - / *)))            ;; add or remove functions from function-set
+;;     ;; A working prototype does not have to be supplied.
+;;     ;; If it is it becomes the function's (best )
+;;     ;; If no tests are supplied it becomes the first test.
+;;     (+ arg arg-2)))
 
-;(test-one)
+(define-syntax tag
+  (syntax-rules ()
+    ((tag name data)
+      (cons 'name data))
+    ((tag name data ...)
+      (cons 'name '(data ...)))))
 
+(define-syntax def-module
+  (syntax-rules ()
+    ((def-module (funcs terms) defs ...)
+      (let ((function-set 'funcs)
+            (terminal-set 'terms))
+           (list defs ...)))))
+
+(define-syntax def
+  (syntax-rules ()
+    ((def proto meta ...)
+      (list (tag prototype 'proto)
+            (tag funcs function-set)
+            (tag terms terminal-set)
+            meta ...))))
+
+ 
+
+(define a 
+(def-module
+  (((+ num num) (- num num) (< num num) (> num num) (if t c a))
+   (#t #f 0 1))
   
+  (def (med x y z)
+    (tag doc
+      "Docstring")
+    (tag tests
+      ((5 3 7) . 5)
+      ((9 7 3) . 7)
+      ((9 3 6) . 6)
+      ((3 7 5) . 5))
+    (tag best
+      '(lambda (x y z)
+        (if (> x y)
+            (if (> x z)
+                (if (> y z) y z)
+                x)
+            (if (> x z)
+                x
+                (if (> y z) z y))))))
+  
+  (def (plus x y)
+    (tag doc "docstring")
+    (tag tests 
+      ((3 4) . 7)
+      ((7 2) . 9)))
+  )
+)  
+
 ;; func storage model
 ;;_____________________;;
 
 ;; name         cons
 ;; 
-;; prototype    (cons any:o lst:l)
+;; prototype    (cons any lst)
 ;; 
 ;; tests        (((cons 1 '()) '(1)) ((cons 1 '(2 3)) '(1 2 3)))
 ;; 
@@ -228,18 +269,13 @@
 
 
 
-
-
-
+;; Breeding
 ;; 
-;; Choose function to test 
-;; Get function attributes
-;; Loop:
-;;   Generate new function
-;;   Test generated function
-;;     if correct add to gene-pool
-;;     else Loop
-;; 
-
+;; Random:  A random node is generated.
+;; Interfunction:  A function is chosen from the gene pool and nodes of its tree
+;;   are swapped and mutated.
+;; Crossover:  Two functions are chosen and random nodes are swapped.
+;; Assimilation:  A function is chosen and a random node is swapped with a 
+;;   function from the gene-pool.
 
 
