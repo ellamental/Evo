@@ -1,0 +1,249 @@
+;; (load "evo-load.chicken")
+
+(require-extension tk)        ;; GUI
+(require-extension posix)     ;; GUI - Building a list of modules
+
+(define (make-module name)
+  (define filename (if (string? name) (conc "project/" name)
+                                      (conc "project/" (symbol->string name))))
+
+  (define (load-module)
+    (define f (open-input-file filename))
+    (define mod (read f))
+    (close-input-port f)
+    mod)
+
+  (define (store-module)
+    (define f (open-output-file filename))
+    (write module f)
+    (close-output-port f))
+  
+  (define module (load-module))
+  
+  (define (add-func definition)
+    (set! module (cons definition module)))
+
+  (define (get-func func-name)
+    (assoc func-name module))
+
+  (define (list-of-names)
+    (map (lambda (x) (car x)) module))
+  
+  (define (prototypes) "list of function prototypes to use in testing")
+  (define (def-funcs) "define funcs in the environment module was loaded")
+
+  
+  (define (dispatch m . arguments)
+    (cond ((equal? m 'name) name)
+          ((equal? m 'module) module)
+          ((equal? m 'list-of-names) (list-of-names))
+          ((equal? m 'store-module) (store-module))
+          ((equal? m 'add-func) (apply add-func arguments))
+          ((equal? m 'get-func) (apply get-func arguments))
+  ))
+  dispatch
+)
+
+
+
+
+
+(define (choice alist #!optional (type 'any))
+  (define (random-choice l)
+    (list-ref l (random (length l))))
+  (if (equal? type 'any)
+      (random-choice (cdr (random-choice alist)))
+      (random-choice (cdr (assoc type alist)))))
+
+
+
+(define (make-func meta-alist)
+  (define name (car meta-alist))
+  (define meta (cdr meta-alist))
+
+  (define (set-tag tag value)
+    (if (assoc tag meta)
+        (set-cdr! (assoc tag meta) value)
+        (set! meta (cons (cons tag value) meta))))
+  (define (append-tag tag value)
+    (define t (assoc tag meta))
+    (if t
+        (set-cdr! t (cons value (cdr t)))
+        (set! meta (cons (cons tag value) meta))))
+  (define (tag-value tag)
+    (cadr (assoc tag meta)))
+
+  (define funcs (tag-value 'funcs))
+  (define terms (tag-value 'terms))
+  (define arg-types (tag-value 'arg-types))
+  (define args (tag-value 'args))
+  
+  (define (choose-func #!optional (type 'any))
+    (choice funcs type))
+  (define (choose-term #!optional (type 'any))
+    (if (> (random 100) 30)
+        (choice arg-types type)
+        (choice terms type)))
+  
+  (define (random-node #!optional (type 'any) (func-prob 70))
+    (if (> (random 100) func-prob)
+      (choose-term type)
+      (let ((f (choose-func type)))
+        (cons (car f)
+              (map (lambda (t) (random-node t (- func-prob 10))) (cdr f))))))
+    
+  (define (make-lambda node)
+    (list 'lambda args node))
+  
+  (define (eval-node lam arguments)
+    (condition-case (apply (eval lam) arguments) [(exn) (print 'error)]))
+
+  (define (eval-times count #!optional (success 0))
+    (if (= count 0)
+        (print "Successful tests: " success)
+        (eval-times (- count 1) (if (equal? (eval-node (make-lambda (random-node)) '(3 4)) 7)
+                                    (+ success 1)
+                                    success))))
+  
+  (define (arb-eval-times count #!optional (test test-once))
+    (if (= count 0)
+      (print 'Finished)
+      (begin 
+        (test (eval-node (make-lambda (random-node))))
+        (eval-times (- count 1)))))
+  
+  (define (dispatch m . arguments)
+    (cond ((equal? m 'name) name)
+          ((equal? m 'meta) meta)
+          ((equal? m 'set-tag) (apply set-tag arguments))
+          ((equal? m 'append-tag) (apply append-tag arguments))
+          ((equal? m 'tag-value) (apply tag-value arguments))
+          ((equal? m 'random-node) (eval-node (make-lambda (random-node)) '(3 4)))
+          ((equal? m 'funcs) funcs)
+          ((equal? m 'eval-times) (apply eval-times arguments))
+  ))
+  dispatch
+)
+
+
+
+;; (load "evo-load.chicken")
+
+(define (database-browser) 
+  (define mod #f)
+  (define func #f)
+  (define current-frame #f)
+
+  (start-tk)
+  
+  (tk 'configure #:width 640)
+  (tk 'configure #:height 480)
+  (tk/wm 'minsize tk 640 480)
+  
+  (define main-menu (tk 'create-widget 'menu))
+  (define module-menu (main-menu 'create-widget 'menu))
+  (define function-menu (main-menu 'create-widget 'menu))
+
+  (tk 'configure #:menu main-menu)
+
+  (main-menu 'add 'cascade #:label 'Modules #:menu module-menu)
+  (main-menu 'add 'cascade #:label 'Functions #:menu function-menu)
+
+  (define (set-module name)
+    (set! mod (make-module name))
+    (function-menu 'delete 0 'end)
+    (populate-function-menu)
+    (draw-module-window))
+
+  (define (set-function name)
+    (set! func (make-func (mod 'get-func name)))
+    (draw-func-window))
+
+  (define (populate-function-menu)
+    (map (lambda (name)
+          (function-menu 'add 'command #:label name
+            #:command (lambda () (set-function name))))
+
+        (mod 'list-of-names)))
+
+  (define (populate-module-menu)
+    (map (lambda (name)
+          (module-menu 'add 'command #:label name
+            #:command (lambda () (set-module name))))
+        (directory "project/")))
+          
+
+  (define (reset-current-frame)
+    (tk/destroy current-frame)
+    (set! current-frame (tk 'create-widget 'frame #:width 640 #:height 480)))
+
+  
+  (define (draw-module-window)
+    (reset-current-frame)
+    (define (make-label text)
+      (current-frame 'create-widget 'label #:text text #:font "Helvetica 20"))
+    
+    (define name-lab (make-label "Name: "))
+    (define name-val (make-label (mod 'name)))
+    (tk/grid name-lab #:row 0 #:column 0)
+    (tk/grid name-val #:row 0 #:column 1)
+    
+    (define funcs-lab (make-label "Funcs:  "))
+    (define funcs-val (make-label (mod 'list-of-names)))
+    (tk/grid funcs-lab #:row 1 #:column 0)
+    (tk/grid funcs-val #:row 1 #:column 1)
+    
+    (tk/pack current-frame)
+    )
+
+  (define (draw-func-window)
+    (reset-current-frame)
+    (define (make-label text)
+      (current-frame 'create-widget 'label #:text text #:font "Helvetica 20"))
+    
+    (define name-lab (make-label "Name: "))
+    (define name-val (make-label (func 'name)))
+    (define args-lab (make-label "Arguments: "))
+    (define args-val (make-label (func 'tag-value 'args)))
+    
+    
+    (tk/grid name-lab #:row 0 #:column 0)
+    (tk/grid name-val #:row 0 #:column 1)
+    (tk/grid args-lab #:row 1 #:column 0)
+    (tk/grid args-val #:row 1 #:column 1)
+    
+    (tk/pack current-frame)
+  )
+
+  (populate-module-menu)
+
+  (tk/console)
+  (event-loop)
+)
+
+
+
+
+
+
+;; (define m (make-module 'math))
+;; (m 'module)
+;; (m 'add-func '(mul (args x y) (funcs (+ num num) (- num num) (< num num) (> num num) (if t c a)) (doc . "multiply func")))
+;; (m 'list-of-names)
+;; 
+;; (define f (make-func (m 'get-func 'plus)))
+;; (f 'meta)
+;; (f 'tag-value 'doc)
+;; (f 'set-tag 'doc "hello")
+;; (f 'append-tag 'args 'z)
+;; (f 'tag-value 'args)
+
+;; (f 'random-node)
+;; (f 'eval-times 10)
+;; 
+;; (time (f 'eval-times 10000))
+
+;; (database-browser) 
+
+
+
