@@ -2,139 +2,145 @@
 ;; evo
 ;; evo.chicken
 ;; (load "/media/DATA/code/evo/evo.chicken")
+;;
+;; TODO:
+;; Store and Retrieve from disk
+;; Utilize type information in func defs for more efficient searching
+;; Define core functions and store in database
+;; Crossover and Mutation
+;; Gene-pool tools (add tests, add functions, etc)
+;; GUI-based module/func tools (tests, prototypes, view gene-pool, etc)
 ;;__________________________________________________________________________;;
 
-(use srfi-42)
+(require-extension srfi-42)  ;; list-ec
+(require-extension srfi-18)  ;; (time->seconds (current-time))
 
-(define (choice #!rest lst)
-  (define all (apply append lst))
-  (list-ref all (random (length all))))
-  ;(define first-choice (list-ref lst (random (length lst))))
-  ;(list-ref first-choice (random (length first-choice))))
+(define (seconds) (time->seconds (current-time)))
 
-
-
-;; f = '(prototype tests funcs terms best gene-pool fitness-rules)
-(define (func-closure f)
-  (define prototype (car f))
-  (define tests (list-ref f 1))
-  (define funcs (list-ref f 2))
-  (define terms (list-ref f 3))
-  (define gene-pool (list-ref f 4))
-  ;(define best (list-ref f 5))
-  ;(define fitness-rules (list-ref f 6))
-  (define num-tests (length tests))
-  (define args (cdr prototype))
-  (define first-test (car tests))
+(define (func meta-hash)
+  
+  (define (choice #!rest lst)
+    (define all (apply append lst))
+    (list-ref all (random (length all))))
 
   
-;;   (define (tag-value t)
-;;     (hash-table-ref meta t))
-;;   (define (set-tag tag value)
-;;     (hash-table-set! meta tag value))
-;;   
+  ;; Get and Store function to disk given name
+  ;; meta-hash will be retrieved and set by these functions
+  (define (get-func name) #f)
+  (define (store-func name) #f)
   
-  ;;___________________________________________;;
-  ;; Generating Functions
-  ;;___________________________________________;;
+  (define meta meta-hash)    ;; will eventually be: (get-func function-name))
   
+  ;; Set and Retrieve tags and values
+  (define (tag-value t)
+    (cdr (assoc t meta)))
+  (define (set-tag tag value) #f)
+
+  ;; Create and Eval Functions
+  (define (make-func node)
+    (list 'lambda (tag-value 'args) node))
+  (define (eval-func lmbda arguments)
+    (condition-case (apply (eval lmbda) arguments) [(exn) (void)]))
+
+  
+  (define funcs (tag-value 'funcs))
+  (define terms (tag-value 'terms))
+  (define args (tag-value 'args))
+  (define (rand-func) (choice funcs))
+  (define (rand-term) (choice args terms))
+  
+  ;; Random Node Selection and Generation
+  (define (random-node probability)
+    (if (> (random 100) probability)
+      (rand-term)
+      (let ((f (rand-func)))
+        (cons (car f)
+              (list-ec (: i (length (cdr f))) (random-node (- probability 10)))))))
+
   (define (random-func)
-    (random-function))
+    (make-func (random-node 80)))
+  
+  (define (random-gene)
+    (vector-ref (tag-value 'gene-pool) (random (vector-length (tag-value 'gene-pool)))))
+  (define (random-gene-node)
+    (define (rand-node gene) #f)
+    (rand-node (random-gene)))
   
   
-  (define (get-term) (choice args terms))
-  (define (get-func) (choice funcs)) ; also choose from gene-pool
+  ;; Testing
+  (define (test-one f test)
+    (define start (seconds))
+    (define t (if (equal? (eval-func f (car test)) (cdr test)) #t #f))
+    (define end (seconds))
+    (list t (- end start)))
   
-  (define (random-function)
-    (define (random-expression probability)
-      (if (> (random 100) probability)
-        (get-term)
-        (let ((f (get-func)))
-          (cons (car f)
-                (list-ec (: i (length (cdr f))) (random-expression (- probability 10)))))))
-    (list 'lambda args (random-expression 99)))
-  
-  (define (swap) #f)
+  (define (fitness f)
+    (define results (let loop ((tests (tag-value 'tests)) (results '()))
+                      (if (null? tests) results
+                        (loop (cdr tests)
+                              (cons (test-one f (car tests)) results)))))
+    (define correctness (/ (length (filter (lambda (x) (equal? (car x) #t)) results))
+                           (length (tag-value 'tests))))
+    (define average-runtime (/ (fold (lambda (n tot) (+ (cadr n) tot)) 0 results)
+                               (length results)))
+    (list correctness average-runtime))
     
   
-  ;;___________________________________________;;
-  ;; Evaluating and Testing Functions
-  ;;___________________________________________;;
- 
   
-  (define (eval-func func args)
-    ;(print func #\newline args)
-    (condition-case (apply (eval func) args) [(exn) (void)]))
-  
-  (define (test f test-args test-result)
+  (define (test-once f test-args test-result)
     (if (equal? (eval-func f test-args) test-result) #t #f))
 
-  (define (eval-times count)
-    (define test-args (caar tests))
-    (define test-result (cdar tests))
+  ;; Test Loops
+  (define (test-times count #!optional (func-gen random-func) (test test-once) (success store))
+    (define test-args (caar (tag-value 'tests)))
+    (define test-result (cdar (tag-value 'tests)))
     (define (eval-loop count)
-      (define f (random-func))
-      (if (= 0 count)
-        (print "Finished")
-        (begin
-          (if (test f test-args test-result) (store f))
-          (eval-loop (- count 1)))))
+      (let ((f (func-gen)))
+        (if (= 0 count)
+          (print "Finished")
+          (if (test f test-args test-result)
+              (begin
+                (success f)
+                (eval-loop (- count 1)))
+              (eval-loop (- count 1))))))
     (eval-loop count))
-    
-
-  
-  ;;___________________________________________;;
-  ;; Storing and Retrieving Functions
-  ;;___________________________________________;;
-
-  (define (fitness f)
-    ;run all tests determining for each one:
-      ;fitness
-      ;runtime
-      ;memory
-    ;average the runtime, memory-usage and fitness
-    ;calculate the size of the func tree
-    ;return (fitness, runtime, memory, size)
-  ;;For now we'll just return fitness
-    (define correct (length (filter (lambda (t) (test f (car t) (cdr t))) tests)))
-    (/ correct num-tests))
   
   
-  ;; Automatically write all funcs that pass one test to gene-pool
-  ;; if full then must pass two tests to write over function
+  ;; Storing Functions in Gene Pool
   (define (store f)
     (define fit (fitness f))
-    (if (> fit .3) 
-      (set! gene-pool (cons (cons f fit) gene-pool))))
-
-  (define (write-to-disk)
-    "Write the closure to disk or database")
-  (define (read-from-disk)
-    "Read closure from disk - This involves calling (func-closure name)")
-
+    
+    (define (submit-to-pool pool)
+      (if (eval-func (car pool) (list fit))
+          (begin (set-cdr! pool (cons f (cdr pool))) #t)
+          #f))
+    
+    (define (submit-loop pools)
+      (if (null? pools) #f
+          (if (submit-to-pool (car pools)) #t
+              (submit-loop (cdr pools)))))
+        
+    (submit-loop (tag-value 'gene-pool)))
   
-  ;;___________________________________________;;
+  ;; Prototype
+  (define (make-prototype)
+    (if (symbol? (tag-value 'best))
+        (cons (tag-value 'best) (tag-value 'args))
+        (cons (eval (tag-value 'best)) (tag-value 'args))))
+  
+  
   ;; Dispatch
-  ;;___________________________________________;;
-
-  (define (dispatch message . arguments)
-    (cond ((equal? message 'prototype) prototype)
-          ((equal? message 'tests) tests)
-          ((equal? message 'funcs) funcs)
-          ((equal? message 'terms) terms)
-          ((equal? message 'gene-pool) gene-pool)
-          ((equal? message 'random-func) (random-func))
-          ((equal? message 'eval-func) (apply eval-func arguments))
-          ((equal? message 'test) (apply test arguments))
-          ((equal? message 'eval-times) (apply eval-times arguments))
-          ((equal? message 'fitness) (apply fitness arguments))
-          ((equal? message 'get-func) (get-func))))
+  (define (dispatch m . arguments)
+    (cond ((equal? m 'tag-value) (apply tag-value arguments))
+          ((equal? m 'set-tag) (apply set-tag arguments))
+          ((equal? m 'test) (apply test-times arguments))
+          ((equal? m 'make-prototype) (make-prototype))))
   dispatch
 )
 
 
-;; Ideal def-module; for now must supply tags for all meta-data (tag name data)
-;; 
+;;Ideal def-module; for now must supply tags for all meta-data (tag name data)
+
 ;; (def-module name
 ;;   (function-set terminal-set)
 ;;   
@@ -159,23 +165,137 @@
 
 (define-syntax def-module
   (syntax-rules ()
-    ((def-module (funcs terms) defs ...)
-      (let ((function-set 'funcs)
-            (terminal-set 'terms))
-           (list defs ...)))))
+    ((def-module mod-name (funcs terms) defs ...)
+      (begin
+        (define function-set 'funcs)
+        (define terminal-set 'terms)
+        (list defs ...)))))
 
 (define-syntax def
   (syntax-rules ()
-    ((def proto meta ...)
-      (list (tag prototype 'proto)
+    ((def (func-name arguments ...) meta ...)
+      (list (tag name 'func-name)
+            (tag args (list 'arguments ...))
             (tag funcs function-set)
             (tag terms terminal-set)
+            (tag gene-pool '( ((lambda (f) (if (> (car f) .9) f #f)) . ()) 
+                              ((lambda (f) (if (> (car f) .7) f #f)) . ()) 
+                              ((lambda (f) (if (> (car f) .4) f #f)) . ()) ))
             meta ...))))
 
+
+;;__________________________________________________________________________;;
+;; Loading and Testing Modules
+;; These would normally be stored and loaded from disk
+;;__________________________________________________________________________;;
+
+
+(define (load-module module-name)
+  (define (get-module)
+    (cdr (assoc module-name modules)))
+  (define module (map (lambda (f) (func f)) (get-module))))
+  
+
+(define (load-module-prototypes module-name)
+  (define module (load-module module-name))  
+
+  (define (make-proto f)
+    (define fun (f 'tag-value 'best))
+    (define ags (f 'tag-value 'args))
+    (if (symbol? fun)
+        (cons fun ags)
+        (cons (eval fun) ags)))
+
+  (define (funcs)
+    (map (lambda (f) (make-proto f)) module))
+  (funcs))
  
 
-(define a 
-(def-module
+(define (test-module module-name)
+  (define module (load-module module-name))
+  
+  module)
+
+
+
+;;__________________________________________________________________________;;
+;; Modules
+;; These would normally be stored and loaded from disk
+;;__________________________________________________________________________;;
+
+(define modules (alist->hash-table (list
+
+(cons 'core-cond
+(def-module conditionals
+  (#f #f)
+  (def (if any:test any:consequent any:alternate)
+    (tag best 'if))
+  (def (and any:1 any:2)
+    (tag best 'and))
+  (def (or any:1 any:2)
+    (tag best 'or))
+  (def (not any)
+    (tag best 'not))
+))
+
+(cons 'core-lists
+(def-module lists
+  (#f #f)
+  (def (car lst)
+    (tag best 'car))
+  (def (cdr lst)
+    (tag best 'cdr))
+  (def (length lst)
+    (tag best 'length))
+  (def (list-ref lst int)
+    (tag best 'list-ref))
+  (def (member any lst)
+    (tag best 'member))
+))
+
+(cons 'core-loops
+(def-module loops
+  (#f #f)
+  (def (map fun lst)
+    (tag best 'map))
+  (def (fold fun any lst)
+    (tag best 'fold))
+  (def (reduce fun any lst)
+    (tag best 'reduce))
+))
+
+(cons 'core-math
+(def-module math
+  (#f #f)
+  (def (+ num num)
+    (tag best '+))
+  (def (- num num)
+    (tag best '-))
+  (def (* num num)
+    (tag best '*))
+  (def (/ num num)
+    (tag best '/))
+))
+
+(cons 'core-comp
+(def-module comp
+  (#f #f)
+  (def (equal? any any)
+    (tag best 'equal?))
+  (def (< num num)
+    (tag best '<))
+  (def (> num num)
+    (tag best '>))
+))
+)))
+
+
+
+
+
+
+(define mod-test
+(def-module test
   (((+ num num) (- num num) (< num num) (> num num) (if t c a))
    (#t #f 0 1))
   
@@ -203,7 +323,48 @@
       ((3 4) . 7)
       ((7 2) . 9)))
   )
-)  
+)
+
+
+
+(define t (test-module mod-test))
+(define c (load-module mod-cond))
+
+(define a (car t))
+(define b (c 'funcs))
+
+(time (a 'test 10000))
+
+
+
+
+
+
+
+
+
+
+
+
+;; Writing Modules
+;;   A human-written module definition should simply be converted into the
+;;   data structure used to store modules/funcs with sensible default values.
+;; Modifying Modules/Funcs
+;;   All funcs should be modifiable after creation.
+;;     Add/Remove tests
+;;     Add/Edit docstrings
+;;     Add/Remove available functions
+;;     Add user written code into gene-pool
+;;     Add/Modify/Remove containers
+;; Testing Funcs
+;;   Should be done automatically and run in background at all times
+;;   Modifications to the testing system is done through the func objects
+;; Using Modules/Funcs
+;;   Load only the 'best' functions for each definition.
+;;   Define name as module.module.name
+
+
+
 
 ;; func storage model
 ;;_____________________;;
@@ -277,5 +438,6 @@
 ;; Crossover:  Two functions are chosen and random nodes are swapped.
 ;; Assimilation:  A function is chosen and a random node is swapped with a 
 ;;   function from the gene-pool.
-
+;; Conditional Combination:  Two partially correct functions are combined under
+;;   a conditional like (if (test ...) (func-a ...) (func-b ...))
 
