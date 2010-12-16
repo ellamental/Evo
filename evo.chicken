@@ -1,4 +1,4 @@
-;; (load "evo-load.chicken")
+;; (load "evo.chicken")
 ;; 
 ;; Evolutionary Search
 ;; 
@@ -17,7 +17,9 @@
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
 ;; - Split off GUI into seperate file.
-;; - Add 'eval-times' to module to test all funcs in module
+;; - Provide a mechanism for specifying the type a function returns and use
+;;   that type when generating new nodes
+;;
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
 ;; - Make a converter that reads regular Scheme code and builds up evo modules.
 ;;___________________________________________________________________________;;
@@ -55,6 +57,9 @@
   
   (define (prototypes) "list of function prototypes to use in testing")
   
+  (define (eval-times count)
+    (map (lambda (f) ((make-func f) 'eval-times count)) module))
+  
   (define (dispatch m . arguments)
     (cond ((equal? m 'name) name)
           ((equal? m 'module) module)
@@ -62,6 +67,7 @@
           ((equal? m 'store-module) (store-module))
           ((equal? m 'add-func) (apply add-func arguments))
           ((equal? m 'get-func) (apply get-func arguments))
+          ((equal? m 'eval-times) (apply eval-times arguments))
   ))
   dispatch
 )
@@ -136,7 +142,9 @@
   
   
   (define (quick-test node)
-    (if (equal? (apply (eval (list 'lambda args node)) first-test-args) 
+    (if (equal? (condition-case 
+                  (apply (eval (list 'lambda args node)) first-test-args)
+                  [(exn) (void)])
                 first-test-result)
         (submit-to-gene-pool node (fitness node))
         #f))
@@ -147,7 +155,9 @@
     ;; later measure speed/space/size/etc
     (/ (length 
          (filter (lambda (test) 
-                   (equal? (apply node-proc (car test)) (cdr test)))
+                   (equal? (condition-case (apply node-proc (car test)) 
+                                           [(exn) (void)])
+                           (cdr test)))
                  (tag-value 'tests)))
        number-of-tests))
   
@@ -200,7 +210,7 @@
 
 
 
-;; (load "evo-load.chicken")
+;; (load "load.chicken")
 
 (define (database-browser) 
   (define mod #f)
@@ -328,70 +338,13 @@
 )
 
 
-;; name
-;; args
-;; proto
-;; arg-types
-
-;; doc
-;; funcs
-;; terms
-;; best
-;; tests
 
 
-;; (define (store node)
-;;   (define node-fitness (fitness node))
-;;   (define (submit-to-pool pool)
-;;     (if (pass-minimums? node-fitness)
-;;         (if (pool-full? pool) 
-;;             (tournament-selection pool node)
-;;             (store-in-pool pool))))
-;;   (find submit-to-pool pools)
-;;   )
-;; 
-;; (define fitness-meta-data
-;;   '((percentage-correct . float)
-;;      (size . integer)
-;;      (speed . )
-;;      (memory-usage (hi lo))
-     
+(define m (make-module 'math))
+(time (m 'eval-times 1000))
 
+(define f (make-func (m 'get-func 'minus)))
+;(time (f 'eval-times 1000))
+;(length (car (f 'gene-pool)))
 
-
-(define m (make-module 'other))
-(define f (make-func (m 'get-func 'middle-num)))
-(time (f 'eval-times 1000))
-(length (car (f 'gene-pool)))
-
-
-(define gp (f 'gene-pool))
-(define g1 (car gp))
-(define g2 (cadr gp))
-(length g1)
-(length g2)
-
-
-
-
-;; (define m (make-module 'math))
-;; (m 'module)
-;; (m 'add-func '(mul (args x y) (funcs (+ num num) (- num num) (< num num) (> num num) (if t c a)) (doc . "multiply func")))
-;; (m 'list-of-names)
-;; 
-;; (define f (make-func (m 'get-func 'plus)))
-;; (f 'meta)
-;; (f 'tag-value 'doc)
-;; (f 'set-tag 'doc "hello")
-;; (f 'append-tag 'args 'z)
-;; (f 'tag-value 'args)
-
-;; (f 'random-node)
-;; (f 'eval-times 10)
-;; 
-;; (time (f 'eval-times 1000))
-
-;; (database-browser) 
-
-
-
+;(database-browser) 
