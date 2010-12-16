@@ -1,7 +1,32 @@
 ;; (load "evo-load.chicken")
+;; 
+;; Evolutionary Search
+;; 
+;; TODO:
+;; - In tournament selection the winner does not replace the loser. FIX SOON!
+;; - Rework the (func 'funcs) so that a function carries a list of module 
+;;   names to import instead of individual prototypes.
+;; - Right now each function carries it's own set of "funcs".  This is redundant
+;;   A module should carry a list of modules to load into the "funcs".  When the
+;;   "funcs" list is created modules should be loaded from the parent module and
+;;   any additional definitions in the function.
+;; - Provide a 'save' button in the function GUI.  This will require the ability
+;;   to read from each text box, not currently possible.  A reference to each
+;;   box will have to be kept.  I don't know whether to create objects out of 
+;;   the frames, each with get and set methods or if I should do it globally.
+;; - Decide if the fitness of a node should be stored with it in gene pool.
+;;     Pros: Don't have to retest; can provide pool avg fitness
+;;     Cons: Extra storage, more complicated design
+;; - Split off GUI into seperate file.
+;; - Add 'eval-times' to module to test all funcs in module
+;; - Add a (use-evo 'math) to allow users to use modules in outside code
+;; - Make a converter that reads regular Scheme code and builds up evo modules.
+;;___________________________________________________________________________;;
 
 (require-extension tk)        ;; GUI
 (require-extension posix)     ;; GUI - Building a list of modules
+(require-extension srfi-1)
+(require-extension srfi-42)
 
 (define (make-module name)
   (define filename (if (string? name) (conc "project/" name)
@@ -30,8 +55,6 @@
     (map (lambda (x) (car x)) module))
   
   (define (prototypes) "list of function prototypes to use in testing")
-  (define (def-funcs) "define funcs in the environment module was loaded")
-
   
   (define (dispatch m . arguments)
     (cond ((equal? m 'name) name)
@@ -43,8 +66,6 @@
   ))
   dispatch
 )
-
-
 
 
 
@@ -65,11 +86,13 @@
     (if (assoc tag meta)
         (set-cdr! (assoc tag meta) value)
         (set! meta (cons (cons tag value) meta))))
+  
   (define (append-tag tag value)
     (define t (assoc tag meta))
     (if t
         (set-cdr! t (cons value (cdr t)))
         (set! meta (cons (cons tag value) meta))))
+  
   (define (tag-value tag)
     (cadr (assoc tag meta)))
 
@@ -77,13 +100,20 @@
   (define terms (tag-value 'terms))
   (define arg-types (tag-value 'arg-types))
   (define args (tag-value 'args))
+  (define first-test-args (caar (tag-value 'tests)))
+  (define first-test-result (cdar (tag-value 'tests)))
+  (define number-of-tests (length (tag-value 'tests)))
+  (define gene-pool (tag-value 'gene-pool))
+
   
   (define (choose-func #!optional (type 'any))
     (choice funcs type))
+  
   (define (choose-term #!optional (type 'any))
     (if (> (random 100) 30)
         (choice arg-types type)
         (choice terms type)))
+  
   
   (define (random-node #!optional (type 'any) (func-prob 70))
     (if (> (random 100) func-prob)
@@ -92,25 +122,71 @@
         (cons (car f)
               (map (lambda (t) (random-node t (- func-prob 10))) (cdr f))))))
     
-  (define (make-lambda node)
-    (list 'lambda args node))
   
-  (define (eval-node lam arguments)
-    (condition-case (apply (eval lam) arguments) [(exn) (print 'error)]))
+  (define (eval-node node arguments)
+    (condition-case (apply (eval (list 'lambda args node)) arguments)
+      [(exn) (print 'error)]))
 
-  (define (eval-times count #!optional (success 0))
-    (if (= count 0)
-        (print "Successful tests: " success)
-        (eval-times (- count 1) (if (equal? (eval-node (make-lambda (random-node)) '(3 4)) 7)
-                                    (+ success 1)
-                                    success))))
   
-  (define (arb-eval-times count #!optional (test test-once))
+  (define (eval-times count)
     (if (= count 0)
-      (print 'Finished)
-      (begin 
-        (test (eval-node (make-lambda (random-node))))
-        (eval-times (- count 1)))))
+        (print "Finished")
+        (begin 
+          (quick-test (random-node))
+          (eval-times (- count 1)))))
+  
+  
+  (define (quick-test node)
+    (if (equal? (apply (eval (list 'lambda args node)) first-test-args) 
+                first-test-result)
+        (submit-to-gene-pool node (fitness node))
+        #f))
+  
+  
+  (define (fitness node)
+    (define node-proc (eval (list 'lambda args node)))
+    ;; later measure speed/space/size/etc
+    (/ (length 
+         (filter (lambda (test) 
+                   (equal? (apply node-proc (car test)) (cdr test)))
+                 (tag-value 'tests)))
+       number-of-tests))
+  
+  
+  (define (submit-to-gene-pool node fitness-results)
+    (define (tournament-selection pool)
+      (define cell-number (random (length (cdr pool))))
+      (define cell (drop (cdr pool) cell-number));;(random (length (cdr pool)))))
+      (define incumbant (car cell))
+      (define i-results (fitness incumbant))
+      (if (> fitness-results i-results)
+        (begin
+          ;; ERROR:  Not setting new node in pool
+          (set-car! cell node)  
+          (print "Battle won!  Setting new node." #\newline
+                  "Old fitness: " i-results #\newline
+                  "New fitness: " fitness-results #\newline
+                  "Old node: " incumbant #\newline
+                  "New node: " node #\newline
+                  "Node from pool: " (list-ref pool cell-number)))
+        (print "Battle lost!")))
+
+    
+    (define (submit-for-storage pool)
+      (if (> (length (cdr pool)) 100)
+          (tournament-selection pool)
+          (set-cdr! pool (cons node (cdr pool)))))
+    
+    
+    (define (submit-to-pools pools)
+      (if (null? pools)
+          #f
+          (if (> fitness-results (caar pools))
+              (submit-for-storage (car pools))
+              (submit-to-pools (cdr pools)))))
+    
+    (submit-to-pools gene-pool))
+  
   
   (define (dispatch m . arguments)
     (cond ((equal? m 'name) name)
@@ -118,9 +194,10 @@
           ((equal? m 'set-tag) (apply set-tag arguments))
           ((equal? m 'append-tag) (apply append-tag arguments))
           ((equal? m 'tag-value) (apply tag-value arguments))
-          ((equal? m 'random-node) (eval-node (make-lambda (random-node)) '(3 4)))
           ((equal? m 'funcs) funcs)
           ((equal? m 'eval-times) (apply eval-times arguments))
+          ((equal? m 'random-node) (random-node))
+          ((equal? m 'gene-pool) gene-pool)
   ))
   dispatch
 )
@@ -149,23 +226,26 @@
   (main-menu 'add 'cascade #:label 'Modules #:menu module-menu)
   (main-menu 'add 'cascade #:label 'Functions #:menu function-menu)
 
+  
   (define (set-module name)
     (set! mod (make-module name))
     (function-menu 'delete 0 'end)
     (populate-function-menu)
     (draw-module-window))
 
+  
   (define (set-function name)
     (set! func (make-func (mod 'get-func name)))
     (draw-func-window))
 
+  
   (define (populate-function-menu)
     (map (lambda (name)
           (function-menu 'add 'command #:label name
             #:command (lambda () (set-function name))))
+         (mod 'list-of-names)))
 
-        (mod 'list-of-names)))
-
+  
   (define (populate-module-menu)
     (map (lambda (name)
           (module-menu 'add 'command #:label name
@@ -177,43 +257,73 @@
     (tk/destroy current-frame)
     (set! current-frame (tk 'create-widget 'frame #:width 640 #:height 480)))
 
+
+  (define (make-entry-table parent #!rest data)
+    (define frame (parent 'create-widget 'labelframe #:text "Function Prototype"))
+    (define (make-row label default row-number)
+      (define lab (frame 'create-widget 'label #:text label #:font "Helvetica 20"))
+      (define ent (frame 'create-widget 'entry #:font "Helvetica 20"))
+      (ent 'insert 0 default)
+      (tk/grid lab #:row row-number #:column 0)
+      (tk/grid ent #:row row-number #:column 1)
+      (cons lab ent))
+    (define (make-table data-list result-list row-num)
+      (if (null? data-list)
+          result-list
+          (cons (make-row (car data-list) (cadr data-list) row-num)
+                (make-table (cddr data-list) result-list (+ row-num 1)))))
+    (make-table data '() 0)
+    frame  ;; by returning only the frame we have no way of accessing the entry boxes
+    )
+  
+  
+  (define (make-text-area parent label data height)
+    (define frame (parent 'create-widget 'labelframe #:text label))
+    (define text (frame 'create-widget 'text #:height height #:width 61))
+    (text 'insert 'end data)
+    (tk/grid text)
+    frame)
+  
   
   (define (draw-module-window)
     (reset-current-frame)
-    (define (make-label text)
-      (current-frame 'create-widget 'label #:text text #:font "Helvetica 20"))
-    
-    (define name-lab (make-label "Name: "))
-    (define name-val (make-label (mod 'name)))
-    (tk/grid name-lab #:row 0 #:column 0)
-    (tk/grid name-val #:row 0 #:column 1)
-    
-    (define funcs-lab (make-label "Funcs:  "))
-    (define funcs-val (make-label (mod 'list-of-names)))
-    (tk/grid funcs-lab #:row 1 #:column 0)
-    (tk/grid funcs-val #:row 1 #:column 1)
-    
-    (tk/pack current-frame)
-    )
+    (define prototype-frame (make-entry-table current-frame 
+      "Name: "  (mod 'name)
+      "Funcs: " (mod 'list-of-names)))
+    (tk/pack prototype-frame)
+    (tk/pack current-frame))
+  
 
   (define (draw-func-window)
     (reset-current-frame)
-    (define (make-label text)
-      (current-frame 'create-widget 'label #:text text #:font "Helvetica 20"))
+    (define prototype-frame (make-entry-table current-frame 
+      "Name: "      (func 'name)
+      "Arguments: " (func 'tag-value 'args)
+      "Prototype: " (func 'tag-value 'proto)
+      "Arg Types: " (func 'tag-value 'arg-types)
+      ))
+    (tk/grid prototype-frame #:row 0 #:column 0 #:rowspan 3)
     
-    (define name-lab (make-label "Name: "))
-    (define name-val (make-label (func 'name)))
-    (define args-lab (make-label "Arguments: "))
-    (define args-val (make-label (func 'tag-value 'args)))
+    (define doc (make-text-area current-frame "Docstring" (func 'tag-value 'doc) 2))
+    (tk/grid doc #:row 0 #:column 1)
     
+    (define funcs (make-text-area current-frame "Funcs" (func 'tag-value 'funcs) 2))
+    (tk/grid funcs #:row 1 #:column 1)
     
-    (tk/grid name-lab #:row 0 #:column 0)
-    (tk/grid name-val #:row 0 #:column 1)
-    (tk/grid args-lab #:row 1 #:column 0)
-    (tk/grid args-val #:row 1 #:column 1)
+    (define terms (make-text-area current-frame "Terms" (func 'tag-value 'terms) 2))
+    (tk/grid terms #:row 2 #:column 1)
+
+    (define tests (make-text-area current-frame "Tests" (func 'tag-value 'tests) 5))
+    (tk/grid tests #:row 3 #:column 0)
     
-    (tk/pack current-frame)
-  )
+    (define pool (make-text-area current-frame "Gene Pool" (func 'tag-value 'gene-pool) 5))
+    (tk/grid pool #:row 4 #:column 0)
+    
+    (define scratch (make-text-area current-frame "Scratch Pad" "(lambda ()" 12))
+    (tk/grid scratch #:row 3 #:column 1 #:rowspan 2)
+    
+    ;(make-text-area current-frame "Docstring" (func 'tag-value 'doc))
+    (tk/pack current-frame))
 
   (populate-module-menu)
 
@@ -222,6 +332,48 @@
 )
 
 
+;; name
+;; args
+;; proto
+;; arg-types
+
+;; doc
+;; funcs
+;; terms
+;; best
+;; tests
+
+
+;; (define (store node)
+;;   (define node-fitness (fitness node))
+;;   (define (submit-to-pool pool)
+;;     (if (pass-minimums? node-fitness)
+;;         (if (pool-full? pool) 
+;;             (tournament-selection pool node)
+;;             (store-in-pool pool))))
+;;   (find submit-to-pool pools)
+;;   )
+;; 
+;; (define fitness-meta-data
+;;   '((percentage-correct . float)
+;;      (size . integer)
+;;      (speed . )
+;;      (memory-usage (hi lo))
+     
+
+
+
+(define m (make-module 'other))
+(define f (make-func (m 'get-func 'middle-num)))
+(time (f 'eval-times 100))
+(length (car (f 'gene-pool)))
+
+
+(define gp (f 'gene-pool))
+(define g1 (car gp))
+(define g2 (cadr gp))
+(length g1)
+(length g2)
 
 
 
@@ -241,7 +393,7 @@
 ;; (f 'random-node)
 ;; (f 'eval-times 10)
 ;; 
-;; (time (f 'eval-times 10000))
+;; (time (f 'eval-times 1000))
 
 ;; (database-browser) 
 
