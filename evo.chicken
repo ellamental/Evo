@@ -3,7 +3,6 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
-;; - In tournament selection the winner does not replace the loser. FIX SOON!
 ;; - Rework the (func 'funcs) so that a function carries a list of module 
 ;;   names to import instead of individual prototypes.
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
@@ -161,22 +160,19 @@
       (define i-results (fitness incumbant))
       (if (> fitness-results i-results)
         (begin
-          ;; ERROR:  Not setting new node in pool
           (set-car! cell node)  
           (print "Battle won!  Setting new node." #\newline
                   "Old fitness: " i-results #\newline
                   "New fitness: " fitness-results #\newline
                   "Old node: " incumbant #\newline
-                  "New node: " node #\newline
-                  "Node from pool: " (list-ref pool cell-number)))
+                  "New node:  " node #\newline
+                  "Pool node: " (list-ref (cdr pool) cell-number)))
         (print "Battle lost!")))
 
-    
     (define (submit-for-storage pool)
       (if (> (length (cdr pool)) 100)
           (tournament-selection pool)
           (set-cdr! pool (cons node (cdr pool)))))
-    
     
     (define (submit-to-pools pools)
       (if (null? pools)
@@ -365,7 +361,7 @@
 
 (define m (make-module 'other))
 (define f (make-func (m 'get-func 'middle-num)))
-(time (f 'eval-times 100))
+(time (f 'eval-times 1000))
 (length (car (f 'gene-pool)))
 
 
