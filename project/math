@@ -1,0 +1,12 @@
+((plus
+  (doc . "docstring here")
+  (proto (num . x) (num . y))
+  (modules math cond)
+  (gene-pool
+    (.7 . ()) (.5 . ()))
+  (tests
+    ((3 4) . 7)
+    ((1 2) . 3)
+    ((4 5) . 9)))
+
+)

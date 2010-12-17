@@ -100,7 +100,7 @@
         (set! meta (cons (cons tag value) meta))))
   
   (define (tag-value tag)
-    (cadr (assoc tag meta)))
+    (cdr (assoc tag meta)))
 
   (define (load-function-set)
     ;; load prototypes from each module and sort by type
@@ -111,8 +111,10 @@
   (define funcs (load-function-set))
   (define terms '((num 0 1) (bool #t #f)))
 
-  (define arg-types (tag-value 'arg-types))
-  (define args (tag-value 'args))
+  (define args (map cdr (tag-value 'proto)))
+  (define arg-types (list (cons 'num args)))
+;;   (define arg-types (tag-value 'arg-types))
+;;   (define args (tag-value 'args))
   (define first-test-args (caar (tag-value 'tests)))
   (define first-test-result (cdar (tag-value 'tests)))
   (define number-of-tests (length (tag-value 'tests)))
@@ -313,9 +315,9 @@
     (reset-current-frame)
     (define prototype-frame (make-entry-table current-frame 
       "Name: "      (func 'name)
-      "Arguments: " (func 'tag-value 'args)
+                              ;"Arguments: " (func 'tag-value 'args)
       "Prototype: " (func 'tag-value 'proto)
-      "Arg Types: " (func 'tag-value 'arg-types)
+                              ;"Arg Types: " (func 'tag-value 'arg-types)
       ))
     (tk/grid prototype-frame #:row 0 #:column 0 #:rowspan 3)
     
@@ -349,7 +351,7 @@
 (define m (make-module 'math))
 (time (m 'eval-times 1000))
 
-(define f (make-func (m 'get-func 'minus)))
+(define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
