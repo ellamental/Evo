@@ -3,7 +3,6 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
-;; - GUI: Set return type on save
 ;; - A function should not have to be well-formed everything should work on 
 ;;   any function even if there are only one or two attributes defined.  For
 ;;   example: A function with only name, prototype and tests should still
@@ -357,6 +356,7 @@
                    #:command (lambda ()
                                (if (equal? (string->symbol (name 'text)) (func 'name))
                                    (begin
+                                     (func 'set-tag 'type (string->symbol (type 'text)))
                                      (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
                                      (func 'set-tag 'doc (doc 'text))
                                      (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
@@ -365,6 +365,7 @@
                                    (begin
                                      (mod 'add-func 
                                        (list (string->symbol (name 'text))
+                                             (cons 'type (string->symbol (type 'text)))
                                              (cons 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
                                              (cons 'doc (doc 'text))
                                              (cons 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
