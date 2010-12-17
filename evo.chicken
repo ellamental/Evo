@@ -8,11 +8,6 @@
 ;;   A module should carry a list of modules to load into the "funcs".  When the
 ;;   "funcs" list is created modules should be loaded from the parent module and
 ;;   any additional definitions in the function.
-;; - Provide a 'save' button in the function GUI.  This will require the ability
-;;   to read from each text box, not currently possible.  A reference to each
-;;   box will have to be kept.  I don't know whether to create objects out of 
-;;   the frames, each with get and set methods or if I should do it globally.
-;; - Provide a 'new' button in the function GUI.
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
@@ -281,14 +276,9 @@
     (ent 'insert 'end default)
     (tk/grid ent)
     
-    (define (set-value)
-      (define str (string-join (list "(" (ent 'get) ")") " "))
-      (define value (read (open-input-string str)))
-      (func 'set-tag name value))
-    
     (define (dispatch m . arguments)
       (cond ((equal? m 'frame) frame)
-            ((equal? m 'set) (set-value))
+            ((equal? m 'text) (ent 'get))
         ))
     dispatch)
   
@@ -298,16 +288,9 @@
     (ent 'insert 'end default)
     (tk/grid ent)
     
-    (define (set-value)
-      (define str (if (equal? name 'doc) 
-                      (conc "\"" (ent 'get 1.0 'end) "\"")
-                      (string-join (list "(" (ent 'get 1.0 'end) ")") " ")))
-      (define value (read (open-input-string str)))
-      (func 'set-tag name value))
-    
     (define (dispatch m . arguments)
       (cond ((equal? m 'frame) frame)
-            ((equal? m 'set) (set-value))
+            ((equal? m 'text) (ent 'get 1.0 'end))
         ))
     dispatch)
 
@@ -346,14 +329,25 @@
     
     (define scratch (make-text current-frame 'scratch "Scratch Pad" "(lambda ()" 12))
     (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
-    
+        
     (define save (current-frame 'create-widget 'button #:text "Save"
-                   #:command (lambda () 
-                               (proto 'set)
-                               (doc 'set)
-                               (modules 'set)
-                               (tests 'set)
-                               (mod 'store-module))))
+                   #:command (lambda ()
+                               (if (equal? (string->symbol (name 'text)) (func 'name))
+                                   (begin
+                                     (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
+                                     (func 'set-tag 'doc (doc 'text))
+                                     (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
+                                     (func 'set-tag 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
+                                     (mod 'store-module))
+                                   (begin
+                                     (mod 'add-func 
+                                       (list (string->symbol (name 'text))
+                                             (cons 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
+                                             (cons 'doc (doc 'text))
+                                             (cons 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
+                                             (cons 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
+                                             (cons 'gene-pool (read (open-input-string (conc "(" (pool 'text) ")"))))))
+                                     (mod 'store-module))))))
     (tk/grid save #:row 5 #:column 1)
     
     (tk/pack current-frame))
