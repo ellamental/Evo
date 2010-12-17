@@ -52,7 +52,9 @@
   (define (list-of-names)
     (map (lambda (x) (car x)) module))
   
-  (define (prototypes) "list of function prototypes to use in testing")
+  (define (prototypes)
+    (map (lambda (f) (cons (cdr (assoc 'best f)) 
+                           (cdr (assoc 'proto (cdr f))))) module))
   
   (define (eval-times count)
     (map (lambda (f) ((make-func f) 'eval-times count)) module))
@@ -65,6 +67,7 @@
           ((equal? m 'add-func) (apply add-func arguments))
           ((equal? m 'get-func) (apply get-func arguments))
           ((equal? m 'eval-times) (apply eval-times arguments))
+          ((equal? m 'prototypes) (prototypes))
   ))
   dispatch
 )
@@ -344,7 +347,7 @@
     (define pool (make-text current-frame 'gene-pool "Gene Pool" (func 'tag-value 'gene-pool) 5))
     (tk/grid (pool 'frame) #:row 4 #:column 0)
     
-    (define scratch (make-text current-frame 'scratch "Scratch Pad" "(lambda ()" 12))
+    (define scratch (make-text current-frame 'scratch "Scratch Pad" (func 'tag-value 'best) 12))
     (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
         
     (define save (current-frame 'create-widget 'button #:text "Save"
