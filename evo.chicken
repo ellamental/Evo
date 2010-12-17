@@ -275,86 +275,87 @@
     (set! current-frame (tk 'create-widget 'frame #:width 640 #:height 480)))
 
 
-  (define (make-entry-table parent #!rest data)
-    (define frame (parent 'create-widget 'labelframe #:text "Function Prototype"))
-    (define (make-row label default row-number)
-      (define lab (frame 'create-widget 'label #:text label #:font font-type))
-      (define ent (frame 'create-widget 'entry #:font font-type))
-      (ent 'insert 0 default)
-      (tk/grid lab #:row row-number #:column 0)
-      (tk/grid ent #:row row-number #:column 1)
-      (cons lab ent))
-    (define (make-table data-list result-list row-num)
-      (if (null? data-list)
-          result-list
-          (cons (make-row (car data-list) (cadr data-list) row-num)
-                (make-table (cddr data-list) result-list (+ row-num 1)))))
-    (define children (make-table data '() 0))
-    frame  ;; by returning only the frame we have no way of accessing the entry boxes
-    )
-  
-  (define (make-prototype-area parent)
-    (define frame (parent 'create-widget 'labelframe #:text "Function Prototype"))
-    (define name-lab (frame 'create-widget 'label #:text "Name: " #:font font-type))
-    (define name-ent (frame 'create-widget 'entry #:font font-type))
-    (name-ent 'insert 0 (func 'name))
-    (tk/grid name-lab #:row 0 #:column 0)
-    (tk/grid name-ent #:row 0 #:column 1)
-    (define proto-lab (frame 'create-widget 'label #:text "Prototype: " #:font font-type))
-    (define proto-ent (frame 'create-widget 'entry #:font font-type))
-    (proto-ent 'insert 0 (string-join (map ->string (func 'tag-value 'proto)) " "))
-    (tk/grid proto-lab #:row 1 #:column 0)
-    (tk/grid proto-ent #:row 1 #:column 1)
-  
-    (define (get-values)
-      (list (cons 'name (name-ent 'get))
-            (cons 'proto (proto-ent 'get))))
+  (define (make-entry parent name label default)
+    (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
+    (define ent (frame 'create-widget 'entry #:font font-type))
+    (ent 'insert 'end default)
+    (tk/grid ent)
+    
+    (define (set-value)
+      (define str (string-join (list "(" (ent 'get) ")") " "))
+      (define value (read (open-input-string str)))
+      (func 'set-tag name value))
     
     (define (dispatch m . arguments)
       (cond ((equal? m 'frame) frame)
-            ((equal? m 'values) (get-values))
+            ((equal? m 'set) (set-value))
+        ))
+    dispatch)
+  
+  (define (make-text parent name label default height)
+    (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
+    (define ent (frame 'create-widget 'text #:font font-type #:height height))
+    (ent 'insert 'end default)
+    (tk/grid ent)
+    
+    (define (set-value)
+      (define str (if (equal? name 'doc) 
+                      (conc "\"" (ent 'get 1.0 'end) "\"")
+                      (string-join (list "(" (ent 'get 1.0 'end) ")") " ")))
+      (define value (read (open-input-string str)))
+      (func 'set-tag name value))
+    
+    (define (dispatch m . arguments)
+      (cond ((equal? m 'frame) frame)
+            ((equal? m 'set) (set-value))
         ))
     dispatch)
 
-
-  (define (make-text-area parent label data height)
-    (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
-    (define text (frame 'create-widget 'text #:height height #:width 61 #:font font-type))
-    (text 'insert 'end data)
-    (tk/grid text)
-    frame)
   
   
   (define (draw-module-window)
     (reset-current-frame)
-    (define prototype-frame (make-entry-table current-frame 
-      "Name: "  (mod 'name)
-      "Funcs: " (mod 'list-of-names)))
-    (tk/pack prototype-frame)
+    (define name (make-entry current-frame 'name "Name" (mod 'name)))
+    (tk/grid (name 'frame) #:row 0)
+    
+    (define funcs (make-entry current-frame 'funcs "Functions" (mod 'list-of-names)))
+    (tk/grid (funcs 'frame) #:row 1)
+    
     (tk/pack current-frame))
   
 
   (define (draw-func-window)
     (reset-current-frame)
-    (define prototype-frame (make-prototype-area current-frame))
-    (tk/grid (prototype-frame 'frame) #:row 0 #:column 0 #:rowspan 3)
+    (define name (make-entry current-frame 'name "Name" (func 'name))) ;;(make-prototype-area current-frame))
+    (tk/grid (name 'frame) #:row 0 #:column 0)
     
-    (define doc (make-text-area current-frame "Docstring" (func 'tag-value 'doc) 2))
-    (tk/grid doc #:row 0 #:column 1)
+    (define proto (make-entry current-frame 'proto "Prototype" (string-join (map ->string (func 'tag-value 'proto)) " ")))
+    (tk/grid (proto 'frame) #:row 1 #:column 0)
+            
+    (define doc (make-text current-frame 'doc "Docstring" (func 'tag-value 'doc) 2))
+    (tk/grid (doc 'frame) #:row 0 #:column 1)
     
-    (define modules (make-text-area current-frame "Modules Available When Testing" (func 'tag-value 'modules) 2))
-    (tk/grid modules #:row 1 #:column 1)
+    (define modules (make-text current-frame 'modules "Modules Available When Testing" (func 'tag-value 'modules) 2))
+    (tk/grid (modules 'frame) #:row 1 #:column 1)
     
-    (define tests (make-text-area current-frame "Tests" (string-join (map ->string (func 'tag-value 'tests)) "\n") 5))
-    (tk/grid tests #:row 3 #:column 0)
+    (define tests (make-text current-frame 'tests "Tests" (string-join (map ->string (func 'tag-value 'tests)) "\n") 5))
+    (tk/grid (tests 'frame) #:row 3 #:column 0)
     
-    (define pool (make-text-area current-frame "Gene Pool" (func 'tag-value 'gene-pool) 5))
-    (tk/grid pool #:row 4 #:column 0)
+    (define pool (make-text current-frame 'gene-pool "Gene Pool" (func 'tag-value 'gene-pool) 5))
+    (tk/grid (pool 'frame) #:row 4 #:column 0)
     
-    (define scratch (make-text-area current-frame "Scratch Pad" "(lambda ()" 12))
-    (tk/grid scratch #:row 3 #:column 1 #:rowspan 2)
+    (define scratch (make-text current-frame 'scratch "Scratch Pad" "(lambda ()" 12))
+    (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
     
-    ;(make-text-area current-frame "Docstring" (func 'tag-value 'doc))
+    (define save (current-frame 'create-widget 'button #:text "Save"
+                   #:command (lambda () 
+                               (proto 'set)
+                               (doc 'set)
+                               (modules 'set)
+                               (tests 'set)
+                               (mod 'store-module))))
+    (tk/grid save #:row 5 #:column 1)
+    
     (tk/pack current-frame))
 
   (populate-module-menu)
@@ -367,10 +368,10 @@
 
 
 (define m (make-module 'math))
-(time (m 'eval-times 1000))
+(time (m 'eval-times 100))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
-;(database-browser) 
+(database-browser) 
