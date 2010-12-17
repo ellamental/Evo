@@ -284,7 +284,7 @@
   
   (define (make-text parent name label default height)
     (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
-    (define ent (frame 'create-widget 'text #:font font-type #:height height))
+    (define ent (frame 'create-widget 'text #:font font-type #:height height #:width 50))
     (ent 'insert 'end default)
     (tk/grid ent)
     
@@ -312,8 +312,11 @@
     (define name (make-entry current-frame 'name "Name" (func 'name))) ;;(make-prototype-area current-frame))
     (tk/grid (name 'frame) #:row 0 #:column 0)
     
+    (define type (make-entry current-frame 'type "Return Type" (func 'tag-value 'type)))
+    (tk/grid (type 'frame) #:row 1 #:column 0)
+    
     (define proto (make-entry current-frame 'proto "Prototype" (string-join (map ->string (func 'tag-value 'proto)) " ")))
-    (tk/grid (proto 'frame) #:row 1 #:column 0)
+    (tk/grid (proto 'frame) #:row 2 #:column 0)
             
     (define doc (make-text current-frame 'doc "Docstring" (func 'tag-value 'doc) 2))
     (tk/grid (doc 'frame) #:row 0 #:column 1)
