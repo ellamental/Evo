@@ -3,6 +3,7 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
+;; - Add a 'create module' button in GUI
 ;; - Write 'load-function-set to load prototypes from all modules listed
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
 ;;   A module should carry a list of modules to load into the "funcs".  When the
@@ -107,8 +108,18 @@
   (define terms '((num 0 1) (bool #t #f)))
 
   ;; TODO: arg-types should be deleted and replaced by something more elegant
+  (define (get-arg-types)
+    (define types (hash-table-keys (alist->hash-table (tag-value 'proto))))
+    (map (lambda (type) (cons type
+                              (map (lambda (a) (cdr a)) 
+                                (filter (lambda (arg) (if (equal? type (car arg))
+                                                          #t
+                                                          #f))
+                                        (tag-value 'proto)))))
+         types))
+
+  (define arg-types (get-arg-types))
   (define args (map cdr (tag-value 'proto)))
-  (define arg-types (list (cons 'num args)))
 
   (define first-test-args (caar (tag-value 'tests)))
   (define first-test-result (cdar (tag-value 'tests)))
@@ -133,6 +144,7 @@
               (map (lambda (t) (random-node t (- func-prob 10))) (cdr f))))))
     
   
+  ;; not used
   (define (eval-node node arguments)
     (condition-case (apply (eval (list 'lambda args node)) arguments)
       [(exn) (print 'error)]))
@@ -209,6 +221,8 @@
           ((equal? m 'eval-times) (apply eval-times arguments))
           ((equal? m 'random-node) (random-node))
           ((equal? m 'gene-pool) gene-pool)
+          ((equal? m 'get-arg-types) (get-arg-types))
+          ((equal? m 'arg-types) arg-types)
   ))
   dispatch
 )
@@ -371,4 +385,4 @@
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
-(database-browser) 
+;(database-browser) 
