@@ -3,8 +3,7 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
-;; - Rework the (func 'funcs) so that a function carries a list of module 
-;;   names to import instead of individual prototypes.
+;; - Write 'load-function-set to load prototypes from all modules listed
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
 ;;   A module should carry a list of modules to load into the "funcs".  When the
 ;;   "funcs" list is created modules should be loaded from the parent module and
@@ -13,6 +12,7 @@
 ;;   to read from each text box, not currently possible.  A reference to each
 ;;   box will have to be kept.  I don't know whether to create objects out of 
 ;;   the frames, each with get and set methods or if I should do it globally.
+;; - Provide a 'new' button in the function GUI.
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
@@ -111,10 +111,10 @@
   (define funcs (load-function-set))
   (define terms '((num 0 1) (bool #t #f)))
 
+  ;; TODO: arg-types should be deleted and replaced by something more elegant
   (define args (map cdr (tag-value 'proto)))
   (define arg-types (list (cons 'num args)))
-;;   (define arg-types (tag-value 'arg-types))
-;;   (define args (tag-value 'args))
+
   (define first-test-args (caar (tag-value 'tests)))
   (define first-test-result (cdar (tag-value 'tests)))
   (define number-of-tests (length (tag-value 'tests)))
@@ -175,7 +175,7 @@
   (define (submit-to-gene-pool node fitness-results)
     (define (tournament-selection pool)
       (define cell-number (random (length (cdr pool))))
-      (define cell (drop (cdr pool) cell-number));;(random (length (cdr pool)))))
+      (define cell (drop (cdr pool) cell-number))
       (define incumbant (car cell))
       (define i-results (fitness incumbant))
       (if (> fitness-results i-results)
