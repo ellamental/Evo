@@ -289,11 +289,37 @@
           result-list
           (cons (make-row (car data-list) (cadr data-list) row-num)
                 (make-table (cddr data-list) result-list (+ row-num 1)))))
-    (make-table data '() 0)
+    (define children (make-table data '() 0))
     frame  ;; by returning only the frame we have no way of accessing the entry boxes
     )
   
+  (define (make-prototype-area parent)
+    (define frame (parent 'create-widget 'labelframe #:text "Function Prototype"))
+    (define name-lab (frame 'create-widget 'label #:text "Name: " #:font font-type))
+    (define name-ent (frame 'create-widget 'entry #:font font-type))
+    (name-ent 'insert 0 (func 'name))
+    (tk/grid name-lab #:row 0 #:column 0)
+    (tk/grid name-ent #:row 0 #:column 1)
+    (define proto-lab (frame 'create-widget 'label #:text "Prototype: " #:font font-type))
+    (define proto-ent (frame 'create-widget 'entry #:font font-type))
+    (proto-ent 'insert 0 (func 'tag-value 'proto))
+    (tk/grid proto-lab #:row 1 #:column 0)
+    (tk/grid proto-ent #:row 1 #:column 1)
   
+    (define (get-values)
+      (list (cons 'name (name-ent 'get))
+            (cons 'proto (proto-ent 'get))))
+    ;; comes out as -> ((name . plus) (proto num.x num.y)) obviously an error
+    
+    (define (dispatch m . arguments)
+      (cond ((equal? m 'frame) frame)
+            ((equal? m 'values) (get-values))
+        ))
+    dispatch)
+
+  
+    
+    
   (define (make-text-area parent label data height)
     (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
     (define text (frame 'create-widget 'text #:height height #:width 61 #:font font-type))
@@ -313,13 +339,9 @@
 
   (define (draw-func-window)
     (reset-current-frame)
-    (define prototype-frame (make-entry-table current-frame 
-      "Name: "      (func 'name)
-                              ;"Arguments: " (func 'tag-value 'args)
-      "Prototype: " (func 'tag-value 'proto)
-                              ;"Arg Types: " (func 'tag-value 'arg-types)
-      ))
-    (tk/grid prototype-frame #:row 0 #:column 0 #:rowspan 3)
+    (define prototype-frame (make-prototype-area current-frame))
+    (tk/grid (prototype-frame 'frame) #:row 0 #:column 0 #:rowspan 3)
+    (print (prototype-frame 'values))
     
     (define doc (make-text-area current-frame "Docstring" (func 'tag-value 'doc) 2))
     (tk/grid doc #:row 0 #:column 1)
