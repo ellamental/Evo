@@ -3,12 +3,12 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
+;; - GUI: Set return type on save
 ;; - A function should not have to be well-formed everything should work on 
 ;;   any function even if there are only one or two attributes defined.  For
 ;;   example: A function with only name, prototype and tests should still
 ;;   work, instead of crashing the GUI/crashing testing/etc
 ;; - Add a 'create module' button in GUI
-;; - Write 'load-function-set to load prototypes from all modules listed
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
 ;;   A module should carry a list of modules to load into the "funcs".  When the
 ;;   "funcs" list is created modules should be loaded from the parent module and
@@ -57,8 +57,10 @@
     (map (lambda (x) (car x)) module))
   
   (define (prototypes)
-    (map (lambda (f) (cons (cdr (assoc 'best f)) 
-                           (cdr (assoc 'proto (cdr f))))) module))
+    (map (lambda (f) (cons (cdr (assoc 'type (cdr f)))
+                           (cons (cdr (assoc 'best (cdr f))) 
+                                 (cdr (assoc 'proto (cdr f))))))
+         module))
   
   (define (eval-times count)
     (map (lambda (f) ((make-func f) 'eval-times count)) module))
@@ -105,28 +107,24 @@
   (define (tag-value tag)
     (cdr (assoc tag meta)))
 
+  (define (sort-types types-list)
+    (define types (hash-table-keys (alist->hash-table types-list)))
+    (map (lambda (type)
+           (cons type (filter-map (lambda (t) (and (equal? (car t) type) (cdr t)))
+                                  types-list)))
+         types))
+
   (define (load-function-set)
-    ;; load prototypes from each module and sort by type
-    '((num (+ (num . x) (num . y)) (- (num . x) (num . y))) 
-      (bool (< (num . x) (num . y)) (> (num . x) (num . y)) 
-            (if (any . t) (any . c) (any . a)))))
-    
+    (sort-types (apply append (map (lambda (m) (let ((mod (make-module m)))
+                                                 (mod 'prototypes)))
+                                   (tag-value 'modules)))))
+
   ;; TODO: create funcs and terms only when required
   (define funcs (load-function-set))
   (define terms '((num 0 1) (bool #t #f)))
 
-  ;; TODO: arg-types should be deleted and replaced by something more elegant
-  (define (get-arg-types)
-    (define types (hash-table-keys (alist->hash-table (tag-value 'proto))))
-    (map (lambda (type) (cons type
-                              (map (lambda (a) (cdr a)) 
-                                (filter (lambda (arg) (if (equal? type (car arg))
-                                                          #t
-                                                          #f))
-                                        (tag-value 'proto)))))
-         types))
-
-  (define arg-types (get-arg-types))
+  
+  (define arg-types (sort-types (tag-value 'proto)))
   (define args (map cdr (tag-value 'proto)))
 
   (define first-test-args (caar (tag-value 'tests)))
@@ -229,8 +227,8 @@
           ((equal? m 'eval-times) (apply eval-times arguments))
           ((equal? m 'random-node) (random-node))
           ((equal? m 'gene-pool) gene-pool)
-          ((equal? m 'get-arg-types) (get-arg-types))
           ((equal? m 'arg-types) arg-types)
+          ((equal? m 'sort-types) (apply sort-types arguments))
   ))
   dispatch
 )
@@ -385,9 +383,8 @@
 
 
 
-
 (define m (make-module 'math))
-(time (m 'eval-times 100))
+(time (m 'eval-times 1000))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
