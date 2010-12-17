@@ -3,6 +3,10 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
+;; - A function should not have to be well-formed everything should work on 
+;;   any function even if there are only one or two attributes defined.  For
+;;   example: A function with only name, prototype and tests should still
+;;   work, instead of crashing the GUI/crashing testing/etc
 ;; - Add a 'create module' button in GUI
 ;; - Write 'load-function-set to load prototypes from all modules listed
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
@@ -103,8 +107,9 @@
 
   (define (load-function-set)
     ;; load prototypes from each module and sort by type
-    '((num (+ num num) (- num num)) 
-      (bool (< num num) (> num num) (if any any any))))
+    '((num (+ (num . x) (num . y)) (- (num . x) (num . y))) 
+      (bool (< (num . x) (num . y)) (> (num . x) (num . y)) 
+            (if (any . t) (any . c) (any . a)))))
     
   ;; TODO: create funcs and terms only when required
   (define funcs (load-function-set))
@@ -144,7 +149,7 @@
       (choose-term type)
       (let ((f (choose-func type)))
         (cons (car f)
-              (map (lambda (t) (random-node t (- func-prob 10))) (cdr f))))))
+              (map (lambda (a) (random-node (car a) (- func-prob 10))) (cdr f))))))
     
   
   ;; not used
