@@ -19,6 +19,7 @@
 ;; - Split off GUI into seperate file.
 ;; - Provide a mechanism for specifying the type a function returns and use
 ;;   that type when generating new nodes
+;; - Make arbitrary length gene-pools
 ;;
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
 ;; - Make a converter that reads regular Scheme code and builds up evo modules.
@@ -101,8 +102,15 @@
   (define (tag-value tag)
     (cadr (assoc tag meta)))
 
-  (define funcs (tag-value 'funcs))
-  (define terms (tag-value 'terms))
+  (define (load-function-set)
+    ;; load prototypes from each module and sort by type
+    '((num (+ num num) (- num num)) 
+      (bool (< num num) (> num num) (if any any any))))
+    
+  ;; TODO: create funcs and terms only when required
+  (define funcs (load-function-set))
+  (define terms '((num 0 1) (bool #t #f)))
+
   (define arg-types (tag-value 'arg-types))
   (define args (tag-value 'args))
   (define first-test-args (caar (tag-value 'tests)))
@@ -216,6 +224,7 @@
   (define mod #f)
   (define func #f)
   (define current-frame #f)
+  (define font-type "Helvetica 16")
 
   (start-tk)
   
@@ -267,8 +276,8 @@
   (define (make-entry-table parent #!rest data)
     (define frame (parent 'create-widget 'labelframe #:text "Function Prototype"))
     (define (make-row label default row-number)
-      (define lab (frame 'create-widget 'label #:text label #:font "Helvetica 20"))
-      (define ent (frame 'create-widget 'entry #:font "Helvetica 20"))
+      (define lab (frame 'create-widget 'label #:text label #:font font-type))
+      (define ent (frame 'create-widget 'entry #:font font-type))
       (ent 'insert 0 default)
       (tk/grid lab #:row row-number #:column 0)
       (tk/grid ent #:row row-number #:column 1)
@@ -284,8 +293,8 @@
   
   
   (define (make-text-area parent label data height)
-    (define frame (parent 'create-widget 'labelframe #:text label))
-    (define text (frame 'create-widget 'text #:height height #:width 61))
+    (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
+    (define text (frame 'create-widget 'text #:height height #:width 61 #:font font-type))
     (text 'insert 'end data)
     (tk/grid text)
     frame)
@@ -313,12 +322,9 @@
     (define doc (make-text-area current-frame "Docstring" (func 'tag-value 'doc) 2))
     (tk/grid doc #:row 0 #:column 1)
     
-    (define funcs (make-text-area current-frame "Funcs" (func 'tag-value 'funcs) 2))
-    (tk/grid funcs #:row 1 #:column 1)
+    (define modules (make-text-area current-frame "Modules Available When Testing" (func 'tag-value 'modules) 2))
+    (tk/grid modules #:row 1 #:column 1)
     
-    (define terms (make-text-area current-frame "Terms" (func 'tag-value 'terms) 2))
-    (tk/grid terms #:row 2 #:column 1)
-
     (define tests (make-text-area current-frame "Tests" (func 'tag-value 'tests) 5))
     (tk/grid tests #:row 3 #:column 0)
     
