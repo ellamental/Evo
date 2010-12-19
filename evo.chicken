@@ -5,8 +5,6 @@
 ;; TODO:
 ;; GUI
 ;; - Split off GUI into seperate file.
-;; - GUI: Saving a function creates an extra '\n at the end of the docstring
-;;   every time it is saved.  This should be fixed.
 ;; - Add a 'create module' button in GUI
 ;; 
 ;; Module
@@ -364,26 +362,26 @@
     (define scratch (make-text current-frame 'scratch "Scratch Pad" (func 'tag-value 'best) 12))
     (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
         
-    (define save (current-frame 'create-widget 'button #:text "Save"
-                   #:command (lambda ()
-                               (if (equal? (string->symbol (name 'text)) (func 'name))
-                                   (begin
-                                     (func 'set-tag 'type (string->symbol (type 'text)))
-                                     (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
-                                     (func 'set-tag 'doc (doc 'text))
-                                     (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
-                                     (func 'set-tag 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
-                                     (mod 'store-module))
-                                   (begin
-                                     (mod 'add-func 
-                                       (list (string->symbol (name 'text))
-                                             (cons 'type (string->symbol (type 'text)))
-                                             (cons 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
-                                             (cons 'doc (doc 'text))
-                                             (cons 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
-                                             (cons 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
-                                             (cons 'gene-pool (read (open-input-string (conc "(" (pool 'text) ")"))))))
-                                     (mod 'store-module))))))
+    (define save (current-frame 'create-widget 'button #:text "Save" #:command
+      (lambda ()
+        (if (equal? (string->symbol (name 'text)) (func 'name))
+            (begin
+              (func 'set-tag 'type (string->symbol (type 'text)))
+              (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
+              (func 'set-tag 'doc (string-trim-right (doc 'text) #\newline))                      ;; string-trim-right comes from the tk package
+              (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
+              (func 'set-tag 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
+              (mod 'store-module))
+            (begin
+              (mod 'add-func 
+                (list (string->symbol (name 'text))
+                      (cons 'type (string->symbol (type 'text)))
+                      (cons 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
+                      (cons 'doc (string-trim-right (doc 'text) #\newline))                       ;; string-trim-right comes from the tk package
+                      (cons 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
+                      (cons 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
+                      (cons 'gene-pool (read (open-input-string (conc "(" (pool 'text) ")"))))))
+              (mod 'store-module))))))
     (tk/grid save #:row 5 #:column 1)
     
     (tk/pack current-frame))
