@@ -3,11 +3,19 @@
 ;; Evolutionary Search
 ;; 
 ;; TODO:
-;; - A function should not have to be well-formed everything should work on 
-;;   any function even if there are only one or two attributes defined.  For
-;;   example: A function with only name, prototype and tests should still
-;;   work, instead of crashing the GUI/crashing testing/etc
+;; GUI
+;; - Split off GUI into seperate file.
+;; - GUI: Saving a function creates an extra '\n at the end of the docstring
+;;   every time it is saved.  This should be fixed.
 ;; - Add a 'create module' button in GUI
+;; 
+;; Module
+;; - Write infinate loop to test modules
+;; 
+;; Function
+;; - Make arbitrary length gene-pools
+;; 
+;; Data Storage
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
 ;;   A module should carry a list of modules to load into the "funcs".  When the
 ;;   "funcs" list is created modules should be loaded from the parent module and
@@ -15,11 +23,14 @@
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
-;; - Split off GUI into seperate file.
-;; - Provide a mechanism for specifying the type a function returns and use
-;;   that type when generating new nodes
-;; - Make arbitrary length gene-pools
+;; 
+;; General
+;; - A function should not have to be well-formed everything should work on 
+;;   any function even if there are only one or two attributes defined.  For
+;;   example: A function with only name, prototype and tests should still
+;;   work, instead of crashing the GUI/crashing testing/etc
 ;;
+;; Later
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
 ;; - Make a converter that reads regular Scheme code and builds up evo modules.
 ;;___________________________________________________________________________;;
@@ -106,6 +117,7 @@
   (define (tag-value tag)
     (cdr (assoc tag meta)))
 
+  ;; Split an alist ((type . data) ...) into ((type data data ...) (type ...))
   (define (sort-types types-list)
     (define types (hash-table-keys (alist->hash-table types-list)))
     (map (lambda (type)
@@ -235,8 +247,8 @@
 
 
 ;; (load "load.chicken")
-
-(define (database-browser) 
+;; database-browser
+(define (db) 
   (define mod #f)
   (define func #f)
   (define current-frame #f)
@@ -391,4 +403,4 @@
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
-;(database-browser) 
+;(db)
