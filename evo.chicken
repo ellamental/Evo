@@ -7,7 +7,7 @@
 ;; - Split off GUI into seperate file.
 ;; - Check for duplicate names when saving function (popup error dialog)
 ;; - draw-func-window and draw-new-func-window are almost identical refactor this
-;; - Change defaults in "New Function"
+;; - Change defaults in draw-new-func-window
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
@@ -52,7 +52,7 @@
 
   (define (store-module)
     (define f (open-output-file filename))
-    (write module f)
+    (pretty-print module f)
     (close-output-port f))
   
   (define module (load-module))
@@ -459,7 +459,6 @@
   
   (populate-module-menu)
 
-  (tk/console)
   (event-loop)
 )
 
