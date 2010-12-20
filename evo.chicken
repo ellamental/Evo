@@ -14,6 +14,10 @@
 ;; 
 ;; Function
 ;; - Make arbitrary length gene-pools
+;; - Allow a function with a 'best but no 'tests to use the 'best value as the 
+;;   test when evolving new functions
+;; - Add crossover/mutation/conditional combination and other forms of breeding
+;; - Measure speed/memory/size as well as correctness in fitness testing
 ;; 
 ;; Data Storage
 ;; - Right now each function carries it's own set of "funcs".  This is redundant
@@ -186,7 +190,6 @@
   
   (define (fitness node)
     (define node-proc (eval (list 'lambda args node)))
-    ;; later measure speed/space/size/etc
     (/ (length 
          (filter (lambda (test) 
                    (equal? (condition-case (apply node-proc (car test)) 
@@ -246,7 +249,6 @@
 
 
 
-;; (load "load.chicken")
 ;; database-browser
 (define (db) 
   (define mod #f)
