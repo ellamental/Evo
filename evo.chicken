@@ -9,7 +9,6 @@
 ;; - draw-func-window and draw-new-func-window are almost identical refactor this
 ;; - Change defaults in draw-new-func-window
 ;; - Expand draw-module-window to show/update module-meta data
-;; - name argument in make-entry and make-text is not used, remove it.
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
@@ -21,6 +20,10 @@
 ;; - Add crossover/mutation/conditional combination and other forms of breeding
 ;; - Measure speed/memory/size as well as correctness in fitness testing
 ;; - Import modules from module-meta data when generating/testing nodes
+;;   The easiest way of doing this would be to append the module 'modules to 
+;;   the meta-alist passed to make-func.  However doing this should not save
+;;   the module 'modules in each function to disk, rather it should append the
+;;   data each time the modules are loaded.
 ;; 
 ;; Data Storage
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
@@ -32,6 +35,9 @@
 ;;   any function even if there are only one or two attributes defined.  For
 ;;   example: A function with only name, prototype and tests should still
 ;;   work, instead of crashing the GUI/crashing testing/etc
+;; - The naming conventions in this code have to be changed to make more sense.
+;;   For example there should not be a tag, modules, in a function.  It should
+;;   be something more descriptive like function-set or similar.
 ;;
 ;; Later
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
@@ -329,7 +335,7 @@
     (set! current-frame (tk 'create-widget 'frame #:width 640 #:height 480)))
 
 
-  (define (make-entry parent name label default)
+  (define (make-entry parent label default)
     (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
     (define ent (frame 'create-widget 'entry #:font font-type))
     (ent 'insert 'end default)
@@ -341,7 +347,7 @@
         ))
     dispatch)
   
-  (define (make-text parent name label default height)
+  (define (make-text parent label default height)
     (define frame (parent 'create-widget 'labelframe #:text label #:font font-type))
     (define ent (frame 'create-widget 'text #:font font-type #:height height #:width 50))
     (ent 'insert 'end default)
@@ -356,13 +362,13 @@
   
   (define (draw-module-window)
     (reset-current-frame)
-    (define name (make-entry current-frame 'name "Name" (mod 'name)))
+    (define name (make-entry current-frame "Name" (mod 'name)))
     (tk/grid (name 'frame) #:row 0)
     
-    (define funcs (make-entry current-frame 'funcs "Functions" (mod 'list-of-names)))
+    (define funcs (make-entry current-frame "Functions" (mod 'list-of-names)))
     (tk/grid (funcs 'frame) #:row 1)
     
-    (define modules (make-entry current-frame 'modules "Modules Available When Testing" (mod 'get-meta 'modules)))
+    (define modules (make-entry current-frame "Modules Available When Testing" (mod 'get-meta 'modules)))
     (tk/grid (modules 'frame) #:row 2)
     
     (tk/pack current-frame))
@@ -370,28 +376,28 @@
 
   (define (draw-func-window)
     (reset-current-frame)
-    (define name (make-entry current-frame 'name "Name" (func 'name))) ;;(make-prototype-area current-frame))
+    (define name (make-entry current-frame "Name" (func 'name))) ;;(make-prototype-area current-frame))
     (tk/grid (name 'frame) #:row 0 #:column 0)
     
-    (define type (make-entry current-frame 'type "Return Type" (func 'tag-value 'type)))
+    (define type (make-entry current-frame "Return Type" (func 'tag-value 'type)))
     (tk/grid (type 'frame) #:row 1 #:column 0)
     
-    (define proto (make-entry current-frame 'proto "Prototype" (string-join (map ->string (func 'tag-value 'proto)) " ")))
+    (define proto (make-entry current-frame "Prototype" (string-join (map ->string (func 'tag-value 'proto)) " ")))
     (tk/grid (proto 'frame) #:row 2 #:column 0)
             
-    (define doc (make-text current-frame 'doc "Docstring" (func 'tag-value 'doc) 2))
+    (define doc (make-text current-frame "Docstring" (func 'tag-value 'doc) 2))
     (tk/grid (doc 'frame) #:row 0 #:column 1)
     
-    (define modules (make-text current-frame 'modules "Modules Available When Testing" (func 'tag-value 'modules) 2))
+    (define modules (make-text current-frame "Modules Available When Testing" (func 'tag-value 'modules) 2))
     (tk/grid (modules 'frame) #:row 1 #:column 1)
     
-    (define tests (make-text current-frame 'tests "Tests" (string-join (map ->string (func 'tag-value 'tests)) "\n") 5))
+    (define tests (make-text current-frame "Tests" (string-join (map ->string (func 'tag-value 'tests)) "\n") 5))
     (tk/grid (tests 'frame) #:row 3 #:column 0)
     
-    (define pool (make-text current-frame 'gene-pool "Gene Pool" (func 'tag-value 'gene-pool) 5))
+    (define pool (make-text current-frame "Gene Pool" (func 'tag-value 'gene-pool) 5))
     (tk/grid (pool 'frame) #:row 4 #:column 0)
     
-    (define scratch (make-text current-frame 'scratch "Scratch Pad" (func 'tag-value 'best) 12))
+    (define scratch (make-text current-frame "Scratch Pad" (func 'tag-value 'best) 12))
     (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
         
     (define save (current-frame 'create-widget 'button #:text "Save" #:command
@@ -420,28 +426,28 @@
 
   (define (draw-new-func-window)
     (reset-current-frame)
-    (define name (make-entry current-frame 'name "Name" "")) ;;(make-prototype-area current-frame))
+    (define name (make-entry current-frame "Name" "")) ;;(make-prototype-area current-frame))
     (tk/grid (name 'frame) #:row 0 #:column 0)
     
-    (define type (make-entry current-frame 'type "Return Type" "num"))
+    (define type (make-entry current-frame "Return Type" "num"))
     (tk/grid (type 'frame) #:row 1 #:column 0)
     
-    (define proto (make-entry current-frame 'proto "Prototype" "(num . x) (num . y)"))
+    (define proto (make-entry current-frame "Prototype" "(num . x) (num . y)"))
     (tk/grid (proto 'frame) #:row 2 #:column 0)
             
-    (define doc (make-text current-frame 'doc "Docstring" "Divide x by y" 2))
+    (define doc (make-text current-frame "Docstring" "Divide x by y" 2))
     (tk/grid (doc 'frame) #:row 0 #:column 1)
     
-    (define modules (make-text current-frame 'modules "Modules Available When Testing" "math cond" 2))
+    (define modules (make-text current-frame "Modules Available When Testing" "math cond" 2))
     (tk/grid (modules 'frame) #:row 1 #:column 1)
     
-    (define tests (make-text current-frame 'tests "Tests" "((6 2) . 3)" 5))
+    (define tests (make-text current-frame "Tests" "((6 2) . 3)" 5))
     (tk/grid (tests 'frame) #:row 3 #:column 0)
     
-    (define pool (make-text current-frame 'gene-pool "Gene Pool" "(0.7) (0.5)" 5))
+    (define pool (make-text current-frame "Gene Pool" "(0.7) (0.5)" 5))
     (tk/grid (pool 'frame) #:row 4 #:column 0)
     
-    (define scratch (make-text current-frame 'scratch "Scratch Pad" "/" 12))
+    (define scratch (make-text current-frame "Scratch Pad" "/" 12))
     (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
         
     (define save (current-frame 'create-widget 'button #:text "Save" #:command
@@ -473,7 +479,7 @@
 
 
 (define m (make-module 'math))
-(time (m 'eval-times 1000))
+(time (m 'eval-times 100))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
