@@ -42,7 +42,6 @@
 (require-extension tk)        ;; GUI
 (require-extension posix)     ;; GUI - Building a list of modules
 (require-extension srfi-1)
-(require-extension srfi-42)
 
 (define (make-module name)
   (define filename (if (string? name) (conc "project/" name)
@@ -94,15 +93,6 @@
 
 
 
-(define (choice alist #!optional (type 'any))
-  (define (random-choice l)
-    (list-ref l (random (length l))))
-  (if (equal? type 'any)
-      (random-choice (cdr (random-choice alist)))
-      (random-choice (cdr (assoc type alist)))))
-
-
-
 (define (make-func meta-alist)
   (define name (car meta-alist))
   (define meta (cdr meta-alist))
@@ -147,7 +137,13 @@
   (define number-of-tests (length (tag-value 'tests)))
   (define gene-pool (tag-value 'gene-pool))
 
-  
+  (define (choice alist #!optional (type 'any))
+    (define (random-choice l)
+      (list-ref l (random (length l))))
+    (if (equal? type 'any)
+        (random-choice (cdr (random-choice alist)))
+        (random-choice (cdr (assoc type alist)))))
+
   (define (choose-func #!optional (type 'any))
     (choice funcs type))
   
@@ -473,4 +469,4 @@
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
-(db)
+;(db)
