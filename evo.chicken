@@ -8,6 +8,8 @@
 ;; - Check for duplicate names when saving function (popup error dialog)
 ;; - draw-func-window and draw-new-func-window are almost identical refactor this
 ;; - Change defaults in draw-new-func-window
+;; - Expand draw-module-window to show/update module-meta data
+;; - name argument in make-entry and make-text is not used, remove it.
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
@@ -18,12 +20,9 @@
 ;;   test when evolving new functions
 ;; - Add crossover/mutation/conditional combination and other forms of breeding
 ;; - Measure speed/memory/size as well as correctness in fitness testing
+;; - Import modules from module-meta data when generating/testing nodes
 ;; 
 ;; Data Storage
-;; - Right now each function carries it's own set of "funcs".  This is redundant
-;;   A module should carry a list of modules to load into the "funcs".  When the
-;;   "funcs" list is created modules should be loaded from the parent module and
-;;   any additional definitions in the function.
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
@@ -37,6 +36,7 @@
 ;; Later
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
 ;; - Make a converter that reads regular Scheme code and builds up evo modules.
+;; - Optimize testing loop.
 ;;___________________________________________________________________________;;
 
 (require-extension tk)        ;; GUI
@@ -55,10 +55,15 @@
 
   (define (store-module)
     (define f (open-output-file filename))
-    (pretty-print module f)
+    (pretty-print (cons module-meta module) f)
     (close-output-port f))
   
-  (define module (load-module))
+  (define loaded-module (load-module))
+  (define module-meta (car loaded-module))
+  (define module (cdr loaded-module))
+
+  (define (get-meta tag)
+    (cdr (assoc tag module-meta)))
   
   (define (add-func definition)
     (set! module (cons definition module)))
@@ -87,6 +92,8 @@
           ((equal? m 'get-func) (apply get-func arguments))
           ((equal? m 'eval-times) (apply eval-times arguments))
           ((equal? m 'prototypes) (prototypes))
+          ((equal? m 'get-meta) (apply get-meta arguments))
+          ((equal? m 'module-meta) module-meta)
   ))
   dispatch
 )
@@ -355,6 +362,9 @@
     (define funcs (make-entry current-frame 'funcs "Functions" (mod 'list-of-names)))
     (tk/grid (funcs 'frame) #:row 1)
     
+    (define modules (make-entry current-frame 'modules "Modules Available When Testing" (mod 'get-meta 'modules)))
+    (tk/grid (modules 'frame) #:row 2)
+    
     (tk/pack current-frame))
   
 
@@ -463,7 +473,7 @@
 
 
 (define m (make-module 'math))
-(time (m 'eval-times 100))
+(time (m 'eval-times 1000))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
