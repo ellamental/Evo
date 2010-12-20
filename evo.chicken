@@ -15,7 +15,8 @@
 ;; - Split off GUI into seperate file.
 ;; - Check for duplicate names when saving function (popup error dialog)
 ;; - draw-func-window and draw-new-func-window are almost identical refactor this
-;; - Change defaults in draw-new-func-window
+;; - Change defaults in draw-new-func-window.  Defaults should specify the
+;;   format of the field or the label should do so.
 ;; - Expand draw-module-window to show/update module-meta data
 ;; - Write gene-pool viewer to add/delete/view/modify gene-pools
 ;; - Add test-module button to evolve currently selected module.
@@ -28,7 +29,6 @@
 ;;   (user-defined (num . x) ...) should replace ((lambda ...) ...) 
 ;; 
 ;; Function
-;; - Make arbitrary length gene-pools
 ;; - Allow a function with a 'best but no 'tests to use the 'best value as the 
 ;;   test when evolving new functions
 ;; - Add crossover/mutation/conditional combination and other forms of breeding
@@ -38,6 +38,8 @@
 ;;   the meta-alist passed to make-func.  However doing this should not save
 ;;   the module 'modules in each function to disk, rather it should append the
 ;;   data each time the modules are loaded.
+;; - Write compare-fitness function that will be used by submit-to-pools
+;;   instead of (> fitness-results (pool-tag 'min-correct (car pools)))
 ;; 
 ;; Data Storage
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
@@ -223,6 +225,8 @@
                  (tag-value 'tests)))
        number-of-tests))
   
+  (define (pool-tag tag pool)
+    (cdr (assoc tag (car pool))))
   
   (define (submit-to-gene-pool node fitness-results)
     (define (tournament-selection pool)
@@ -242,14 +246,14 @@
         (print "Battle lost!")))
 
     (define (submit-for-storage pool)
-      (if (> (length (cdr pool)) 100)
+      (if (> (length (cdr pool)) (pool-tag 'max-pool-size pool))
           (tournament-selection pool)
           (set-cdr! pool (cons node (cdr pool)))))
     
     (define (submit-to-pools pools)
       (if (null? pools)
           #f
-          (if (> fitness-results (caar pools))
+          (if (> fitness-results (pool-tag 'min-correct (car pools)))
               (submit-for-storage (car pools))
               (submit-to-pools (cdr pools)))))
     
