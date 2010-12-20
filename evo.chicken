@@ -1,6 +1,14 @@
+;; Evo
+;; Written for:  Chicken Scheme - Version 4.5.5
+;; Copyright:  Jack Trades 2010
+;; Licence:  Not yet licenced
 ;; (load "evo.chicken")
 ;; 
-;; Evolutionary Search
+;; Evo is an evolutionary search based function optimizer.  Evo provides an
+;; interface for defining new modules and functions as well as an evolutionary 
+;; programming based method for optimizing those functions.
+;; 
+;; 
 ;; 
 ;; TODO:
 ;; GUI
@@ -12,6 +20,7 @@
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
+;; - Save module to disk after testing
 ;; 
 ;; Function
 ;; - Make arbitrary length gene-pools
