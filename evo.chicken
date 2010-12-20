@@ -38,15 +38,14 @@
 ;;   the meta-alist passed to make-func.  However doing this should not save
 ;;   the module 'modules in each function to disk, rather it should append the
 ;;   data each time the modules are loaded.
-;; - Write compare-fitness function that will be used by submit-to-pools
-;;   instead of (> fitness-results (pool-tag 'min-correct (car pools)))
+;; - Write more efficent version of node-size
+;; - Change fitness to return a list of fitness values and 
+;;   meets-pool-requirements to use this list.
 ;; 
 ;; Data Storage
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
-;; - gene-pools should store min correctness, max speed, max memory, max size
-;;   and max gene-pool size
 ;; 
 ;; General
 ;; - A function should not have to be well-formed everything should work on 
@@ -225,10 +224,18 @@
                  (tag-value 'tests)))
        number-of-tests))
   
-  (define (pool-tag tag pool)
-    (cdr (assoc tag (car pool))))
   
   (define (submit-to-gene-pool node fitness-results)
+    (define (pool-tag tag pool)
+      (cdr (assoc tag (car pool))))
+    
+    (define (node-size node)
+      (length (flatten node)))
+  
+    (define (meets-pool-requirements? pool)
+      (and (> fitness-results (pool-tag 'min-correct pool))))
+          ;(< (node-size node) (pool-tag 'max-size pool))))
+
     (define (tournament-selection pool)
       (define cell-number (random (length (cdr pool))))
       (define cell (drop (cdr pool) cell-number))
@@ -253,7 +260,7 @@
     (define (submit-to-pools pools)
       (if (null? pools)
           #f
-          (if (> fitness-results (pool-tag 'min-correct (car pools)))
+          (if (meets-pool-requirements? (car pools))
               (submit-for-storage (car pools))
               (submit-to-pools (cdr pools)))))
     
