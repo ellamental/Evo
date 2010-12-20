@@ -5,7 +5,9 @@
 ;; TODO:
 ;; GUI
 ;; - Split off GUI into seperate file.
-;; - Add 'new-function' to the function menu in the GUI
+;; - Check for duplicate names when saving function (popup error dialog)
+;; - draw-func-window and draw-new-func-window are almost identical refactor this
+;; - Change defaults in "New Function"
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
@@ -281,6 +283,9 @@
 
   
   (define (populate-function-menu)
+    (function-menu 'add 'command #:label "New Function" #:command
+      (lambda () (draw-new-func-window)))
+    (function-menu 'add 'separator)
     (map (lambda (name)
           (function-menu 'add 'command #:label name
             #:command (lambda () (set-function name))))
@@ -327,7 +332,7 @@
     
     (define (dispatch m . arguments)
       (cond ((equal? m 'frame) frame)
-            ((equal? m 'text) (ent 'get))
+            ((equal? m 'get) (ent 'get))
         ))
     dispatch)
   
@@ -339,7 +344,7 @@
     
     (define (dispatch m . arguments)
       (cond ((equal? m 'frame) frame)
-            ((equal? m 'text) (ent 'get 1.0 'end))
+            ((equal? m 'get) (ent 'get 1.0 'end))
         ))
     dispatch)
   
@@ -383,28 +388,75 @@
         
     (define save (current-frame 'create-widget 'button #:text "Save" #:command
       (lambda ()
-        (if (equal? (string->symbol (name 'text)) (func 'name))
+        (if (equal? (string->symbol (name 'get)) (func 'name))
             (begin
-              (func 'set-tag 'type (string->symbol (type 'text)))
-              (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
-              (func 'set-tag 'doc (string-trim-right (doc 'text) #\newline))                      ;; string-trim-right comes from the tk package
-              (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
-              (func 'set-tag 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
+              (func 'set-tag 'type (string->symbol (type 'get)))
+              (func 'set-tag 'proto (read (open-input-string (conc "(" (proto 'get) ")"))))
+              (func 'set-tag 'doc (string-trim-right (doc 'get) #\newline))                      ;; string-trim-right comes from the tk package
+              (func 'set-tag 'modules (read (open-input-string (conc "(" (modules 'get) ")"))))
+              (func 'set-tag 'tests (read (open-input-string (conc "(" (tests 'get) ")"))))
               (mod 'store-module))
             (begin
               (mod 'add-func 
-                (list (string->symbol (name 'text))
-                      (cons 'type (string->symbol (type 'text)))
-                      (cons 'proto (read (open-input-string (conc "(" (proto 'text) ")"))))
-                      (cons 'doc (string-trim-right (doc 'text) #\newline))                       ;; string-trim-right comes from the tk package
-                      (cons 'modules (read (open-input-string (conc "(" (modules 'text) ")"))))
-                      (cons 'tests (read (open-input-string (conc "(" (tests 'text) ")"))))
-                      (cons 'gene-pool (read (open-input-string (conc "(" (pool 'text) ")"))))))
+                (list (string->symbol (name 'get))
+                      (cons 'type (string->symbol (type 'get)))
+                      (cons 'proto (read (open-input-string (conc "(" (proto 'get) ")"))))
+                      (cons 'doc (string-trim-right (doc 'get) #\newline))                       ;; string-trim-right comes from the tk package
+                      (cons 'modules (read (open-input-string (conc "(" (modules 'get) ")"))))
+                      (cons 'tests (read (open-input-string (conc "(" (tests 'get) ")"))))
+                      (cons 'gene-pool (read (open-input-string (conc "(" (pool 'get) ")"))))))
               (mod 'store-module))))))
     (tk/grid save #:row 5 #:column 1)
     
     (tk/pack current-frame))
 
+  (define (draw-new-func-window)
+    (reset-current-frame)
+    (define name (make-entry current-frame 'name "Name" "")) ;;(make-prototype-area current-frame))
+    (tk/grid (name 'frame) #:row 0 #:column 0)
+    
+    (define type (make-entry current-frame 'type "Return Type" "num"))
+    (tk/grid (type 'frame) #:row 1 #:column 0)
+    
+    (define proto (make-entry current-frame 'proto "Prototype" "(num . x) (num . y)"))
+    (tk/grid (proto 'frame) #:row 2 #:column 0)
+            
+    (define doc (make-text current-frame 'doc "Docstring" "Divide x by y" 2))
+    (tk/grid (doc 'frame) #:row 0 #:column 1)
+    
+    (define modules (make-text current-frame 'modules "Modules Available When Testing" "math cond" 2))
+    (tk/grid (modules 'frame) #:row 1 #:column 1)
+    
+    (define tests (make-text current-frame 'tests "Tests" "((6 2) . 3)" 5))
+    (tk/grid (tests 'frame) #:row 3 #:column 0)
+    
+    (define pool (make-text current-frame 'gene-pool "Gene Pool" "(0.7) (0.5)" 5))
+    (tk/grid (pool 'frame) #:row 4 #:column 0)
+    
+    (define scratch (make-text current-frame 'scratch "Scratch Pad" "/" 12))
+    (tk/grid (scratch 'frame) #:row 3 #:column 1 #:rowspan 2)
+        
+    (define save (current-frame 'create-widget 'button #:text "Save" #:command
+      (lambda ()
+        (mod 'add-func
+          (list (string->symbol (name 'get))
+                (cons 'type (string->symbol (type 'get)))
+                (cons 'proto (read (open-input-string (conc "(" (proto 'get) ")"))))
+                (cons 'doc (string-trim-right (doc 'get) #\newline))                      ;; string-trim-right comes from the tk package
+                (cons 'modules (read (open-input-string (conc "(" (modules 'get) ")"))))
+                (cons 'tests (read (open-input-string (conc "(" (tests 'get) ")"))))
+                (cons 'gene-pool (read (open-input-string (conc "(" (pool 'get) ")"))))
+                (cons 'best (read (open-input-string (scratch 'get))))))
+        (mod 'store-module)
+        (function-menu 'add 'command #:label (string->symbol (name 'get))
+          #:command (lambda () (set-function (string->symbol (name 'get)))))
+
+        )))
+    (tk/grid save #:row 5 #:column 1)
+    
+    (tk/pack current-frame))
+
+  
   (populate-module-menu)
 
   (tk/console)
