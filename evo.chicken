@@ -17,10 +17,15 @@
 ;; - draw-func-window and draw-new-func-window are almost identical refactor this
 ;; - Change defaults in draw-new-func-window
 ;; - Expand draw-module-window to show/update module-meta data
+;; - Write gene-pool viewer to add/delete/view/modify gene-pools
+;; - Add test-module button to evolve currently selected module.
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
 ;; - Save module to disk after testing
+;; - Allow loading of user defined functions as symbols. Now the prototype of a
+;;   function is either (+ (num . x) ...) or ((lambda (x y) ...) (num . x) ...)
+;;   (user-defined (num . x) ...) should replace ((lambda ...) ...) 
 ;; 
 ;; Function
 ;; - Make arbitrary length gene-pools
@@ -38,6 +43,8 @@
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
 ;;     Pros: Don't have to retest; can provide pool avg fitness
 ;;     Cons: Extra storage, more complicated design
+;; - gene-pools should store min correctness, max speed, max memory, max size
+;;   and max gene-pool size
 ;; 
 ;; General
 ;; - A function should not have to be well-formed everything should work on 
