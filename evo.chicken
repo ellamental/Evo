@@ -5,7 +5,7 @@
 ;; TODO:
 ;; GUI
 ;; - Split off GUI into seperate file.
-;; - Add 'new-module' and 'new-function' to the menus in the GUI
+;; - Add 'new-function' to the function menu in the GUI
 ;; 
 ;; Module
 ;; - Write infinate loop to test modules
@@ -288,6 +288,26 @@
 
   
   (define (populate-module-menu)
+    (module-menu 'add 'command #:label "New Module" #:command
+      (lambda () 
+        (let* ((dialog (tk 'create-widget 'toplevel))
+               (lab (dialog 'create-widget 'label #:text "Name:"))
+               (ent (dialog 'create-widget 'entry))
+               (but (dialog 'create-widget 'button #:text "Submit" #:command
+                      (lambda () 
+                        (let* ((name (ent 'get))
+                              (f (open-output-file (conc "project/" name))))
+                          (write '() f)
+                          (close-output-port f)
+                          (module-menu 'add 'command #:label name
+                            #:command (lambda () (set-module name)))
+                          (set-module name)
+                          (tk/destroy dialog))))))
+          (tk/pack lab)
+          (tk/pack ent)
+          (tk/pack but)
+          )))
+    (module-menu 'add 'separator)
     (map (lambda (name)
           (module-menu 'add 'command #:label name
             #:command (lambda () (set-module name))))
@@ -331,20 +351,6 @@
     
     (define funcs (make-entry current-frame 'funcs "Functions" (mod 'list-of-names)))
     (tk/grid (funcs 'frame) #:row 1)
-    
-    (define new-mod-entry (current-frame 'create-widget 'entry #:font font-type))
-    (tk/grid new-mod-entry #:row 2 #:column 0)
-    
-    (define new-mod-button (current-frame 'create-widget 'button #:text "New Module" #:command
-      (lambda ()
-        (let* ((name (new-mod-entry 'get))
-               (f (open-output-file (conc "project/" name))))
-          (write '() f)
-          (close-output-port f)
-          (module-menu 'add 'command #:label name
-            #:command (lambda () (set-module name)))
-          (set-module name)))))
-    (tk/grid new-mod-button #:row 2 #:column 1)
     
     (tk/pack current-frame))
   
@@ -408,10 +414,10 @@
 
 
 (define m (make-module 'math))
-(time (m 'eval-times 1000))
+(time (m 'eval-times 100))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
 ;(length (car (f 'gene-pool)))
 
-;(db)
+(db)
