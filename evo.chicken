@@ -33,15 +33,11 @@
 ;;   test when evolving new functions
 ;; - Add crossover/mutation/conditional combination and other forms of breeding
 ;; - Measure memory usage in fitness testing
-;; - Use speed/size when submitting to gene-pool
 ;; - Import modules from module-meta data when generating/testing nodes
 ;;   The easiest way of doing this would be to append the module 'modules to 
 ;;   the meta-alist passed to make-func.  However doing this should not save
 ;;   the module 'modules in each function to disk, rather it should append the
 ;;   data each time the modules are loaded.
-;; - Write more efficent version of node-size
-;; - Change fitness to return a list of fitness values and 
-;;   meets-pool-requirements to use this list.
 ;; 
 ;; Data Storage
 ;; - Decide if the fitness of a node should be stored with it in gene pool.
@@ -53,9 +49,6 @@
 ;;   any function even if there are only one or two attributes defined.  For
 ;;   example: A function with only name, prototype and tests should still
 ;;   work, instead of crashing the GUI/crashing testing/etc
-;; - The naming conventions in this code have to be changed to make more sense.
-;;   For example there should not be a tag, modules, in a function.  It should
-;;   be something more descriptive like function-set or similar.
 ;;
 ;; Later
 ;; - Add a (use-evo 'math) to allow users to use modules in outside code
@@ -68,6 +61,7 @@
 (require-extension srfi-1)
 
 (define (make-module name)
+  ;; TODO: Error if module name does not exist
   (define filename (if (string? name) (conc "project/" name)
                                       (conc "project/" (symbol->string name))))
 
@@ -90,12 +84,13 @@
     (cdr (assoc tag module-meta)))
   
   (define (add-func definition)
+    ;; definition = a function alist (func-name (doc . "docstring") ...)
     (set! module (cons definition module)))
 
   (define (get-func func-name)
     (assoc func-name module))
 
-  (define (list-of-names)
+  (define (list-of-function-names)
     (map (lambda (x) (car x)) module))
   
   (define (prototypes)
@@ -110,7 +105,7 @@
   (define (dispatch m . arguments)
     (cond ((equal? m 'name) name)
           ((equal? m 'module) module)
-          ((equal? m 'list-of-names) (list-of-names))
+          ((equal? m 'list-of-function-names) (list-of-function-names))
           ((equal? m 'store-module) (store-module))
           ((equal? m 'add-func) (apply add-func arguments))
           ((equal? m 'get-func) (apply get-func arguments))
@@ -133,6 +128,7 @@
         (set-cdr! (assoc tag meta) value)
         (set! meta (cons (cons tag value) meta))))
   
+  ;; not used
   (define (append-tag tag value)
     (define t (assoc tag meta))
     (if t
@@ -158,17 +154,20 @@
   ;; TODO: create funcs and terms only when required
   (define funcs (load-function-set))
   (define terms '((num 0 1) (bool #t #f)))
+  
+  (define arg-types (sort-types (tag-value 'proto)))  ;; used to pick terminals
+  (define args (map cdr (tag-value 'proto)))          ;; used to create lambda expression
+
+  (define first-test-args (caar (tag-value 'tests)))    ;; used in quick-test
+  (define first-test-result (cdar (tag-value 'tests)))  ;; used in quick-test
+  (define number-of-tests (length (tag-value 'tests)))  ;; used in fitness
+  (define gene-pool (tag-value 'gene-pool))             ;; used in submit-to-gene-pool
 
   
-  (define arg-types (sort-types (tag-value 'proto)))
-  (define args (map cdr (tag-value 'proto)))
-
-  (define first-test-args (caar (tag-value 'tests)))
-  (define first-test-result (cdar (tag-value 'tests)))
-  (define number-of-tests (length (tag-value 'tests)))
-  (define gene-pool (tag-value 'gene-pool))
-
+  ;; choice, choose-func and choose-term are only used by random-node
+  ;; TODO: Should random-node be moved?  With crossover, mutation, etc.?
   (define (choice alist #!optional (type 'any))
+    ;; alist = sorted type list ((num data data) (bool data data) ...)
     (define (random-choice l)
       (list-ref l (random (length l))))
     (if (equal? type 'any)
@@ -183,7 +182,6 @@
         (choice arg-types type)
         (choice terms type)))
   
-  
   (define (random-node #!optional (type 'any) (func-prob 70))
     (if (> (random 100) func-prob)
       (choose-term type)
@@ -194,6 +192,8 @@
   
   ;; not used
   (define (eval-node node arguments)
+    ;; node = an expression (+ x (- x y))
+    ;; arguments = a list of values '(3 4)
     (condition-case (apply (eval (list 'lambda args node)) arguments)
       [(exn) (print 'error)]))
 
@@ -207,6 +207,7 @@
   
   
   (define (quick-test node)
+    ;; node = an expression '(+ x (- x y))
     (if (equal? (condition-case 
                   (apply (eval (list 'lambda args node)) first-test-args)
                   [(exn) (void)])
@@ -216,6 +217,7 @@
   
   
   (define (fitness node)
+    ;; node = an expression '(+ x (- x y))
     (define node-proc (eval (list 'lambda args node)))
 
     (define (node-size node)
@@ -236,6 +238,8 @@
 
     
   (define (submit-to-gene-pool node fitness-results)
+    ;; node = an expression (+ x (- x y))
+    ;; fitness-results = (percent-correct runtime-in-milliseconds node-size)
     (define (pool-tag tag pool)
       (cdr (assoc tag (car pool))))
     
@@ -336,7 +340,7 @@
     (map (lambda (name)
           (function-menu 'add 'command #:label name
             #:command (lambda () (set-function name))))
-         (mod 'list-of-names)))
+         (mod 'list-of-function-names)))
 
   
   (define (populate-module-menu)
@@ -401,7 +405,7 @@
     (define name (make-entry current-frame "Name" (mod 'name)))
     (tk/grid (name 'frame) #:row 0)
     
-    (define funcs (make-entry current-frame "Functions" (mod 'list-of-names)))
+    (define funcs (make-entry current-frame "Functions" (mod 'list-of-function-names)))
     (tk/grid (funcs 'frame) #:row 1)
     
     (define modules (make-entry current-frame "Modules Available When Testing" (mod 'get-meta 'modules)))
@@ -523,7 +527,4 @@
 
 ;(db)
 
-(define a (f 'random-node))
-a
-(f 'fitness a)
 
