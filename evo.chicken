@@ -353,7 +353,7 @@
                       (lambda () 
                         (let* ((name (ent 'get))
                               (f (open-output-file (conc "project/" name))))
-                          (write '() f)
+                          (write '(((modules math cond))) f)
                           (close-output-port f)
                           (module-menu 'add 'command #:label name
                             #:command (lambda () (set-module name)))
@@ -526,5 +526,4 @@
 ;(length (car (f 'gene-pool)))
 
 ;(db)
-
 
