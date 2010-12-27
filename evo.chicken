@@ -26,7 +26,8 @@
 ;; - Save module to disk after testing
 ;; - Allow loading of user defined functions as symbols. Now the prototype of a
 ;;   function is either (+ (num . x) ...) or ((lambda (x y) ...) (num . x) ...)
-;;   (user-defined (num . x) ...) should replace ((lambda ...) ...) 
+;;   (user-defined (num . x) ...) should replace ((lambda ...) ...)
+;; - An error should be thrown if the module name to be loaded does not exist
 ;; 
 ;; Function
 ;; - Allow a function with a 'best but no 'tests to use the 'best value as the 
@@ -60,38 +61,51 @@
 (require-extension posix)     ;; GUI - Building a list of modules
 (require-extension srfi-1)
 
+
+
+;;___________________________________________________________________________;;
+;; Modules
+;;___________________________________________________________________________;;
+
 (define (make-module name)
-  ;; TODO: Error if module name does not exist
   (define filename (if (string? name) (conc "project/" name)
                                       (conc "project/" (symbol->string name))))
 
+  
   (define (load-module)
     (define f (open-input-file filename))
     (define mod (read f))
     (close-input-port f)
     mod)
 
+  
   (define (store-module)
     (define f (open-output-file filename))
     (pretty-print (cons module-meta module) f)
     (close-output-port f))
   
+  
   (define loaded-module (load-module))
   (define module-meta (car loaded-module))
   (define module (cdr loaded-module))
 
+  
   (define (get-meta tag)
     (cdr (assoc tag module-meta)))
+  
   
   (define (add-func definition)
     ;; definition = a function alist (func-name (doc . "docstring") ...)
     (set! module (cons definition module)))
 
+  
   (define (get-func func-name)
     (assoc func-name module))
 
+  
   (define (list-of-function-names)
     (map (lambda (x) (car x)) module))
+  
   
   (define (prototypes)
     (map (lambda (f) (cons (cdr (assoc 'type (cdr f)))
@@ -99,8 +113,10 @@
                                  (cdr (assoc 'proto (cdr f))))))
          module))
   
+  
   (define (eval-times count)
     (map (lambda (f) ((make-func f) 'eval-times count)) module))
+  
   
   (define (dispatch m . arguments)
     (cond ((equal? m 'name) name)
@@ -112,21 +128,26 @@
           ((equal? m 'eval-times) (apply eval-times arguments))
           ((equal? m 'prototypes) (prototypes))
           ((equal? m 'get-meta) (apply get-meta arguments))
-          ((equal? m 'module-meta) module-meta)
-  ))
-  dispatch
-)
+          ((equal? m 'module-meta) module-meta)))
+  
+  dispatch)
 
 
+
+;;___________________________________________________________________________;;
+;; Functions
+;;___________________________________________________________________________;;
 
 (define (make-func meta-alist)
   (define name (car meta-alist))
   (define meta (cdr meta-alist))
 
+  
   (define (set-tag tag value)
     (if (assoc tag meta)
         (set-cdr! (assoc tag meta) value)
         (set! meta (cons (cons tag value) meta))))
+  
   
   ;; not used
   (define (append-tag tag value)
@@ -135,9 +156,11 @@
         (set-cdr! t (cons value (cdr t)))
         (set! meta (cons (cons tag value) meta))))
   
+  
   (define (tag-value tag)
     (cdr (assoc tag meta)))
 
+  
   ;; Split an alist ((type . data) ...) into ((type data data ...) (type ...))
   (define (sort-types types-list)
     (define types (hash-table-keys (alist->hash-table types-list)))
@@ -146,11 +169,13 @@
                                   types-list)))
          types))
 
+  
   (define (load-function-set)
     (sort-types (apply append (map (lambda (m) (let ((mod (make-module m)))
                                                  (mod 'prototypes)))
                                    (tag-value 'modules)))))
 
+  
   ;; TODO: create funcs and terms only when required
   (define funcs (load-function-set))
   (define terms '((num 0 1) (bool #t #f)))
@@ -174,13 +199,16 @@
         (random-choice (cdr (random-choice alist)))
         (random-choice (cdr (assoc type alist)))))
 
+  
   (define (choose-func #!optional (type 'any))
     (choice funcs type))
+  
   
   (define (choose-term #!optional (type 'any))
     (if (> (random 100) 30)
         (choice arg-types type)
         (choice terms type)))
+  
   
   (define (random-node #!optional (type 'any) (func-prob 70))
     (if (> (random 100) func-prob)
@@ -291,12 +319,15 @@
           ((equal? m 'gene-pool) gene-pool)
           ((equal? m 'arg-types) arg-types)
           ((equal? m 'sort-types) (apply sort-types arguments))
-          ((equal? m 'fitness) (apply fitness arguments))
-  ))
-  dispatch
-)
+          ((equal? m 'fitness) (apply fitness arguments))))
+  
+  dispatch)
 
 
+
+;;___________________________________________________________________________;;
+;; GUI
+;;___________________________________________________________________________;;
 
 ;; database-browser
 (define (db) 
@@ -367,7 +398,7 @@
     (map (lambda (name)
           (module-menu 'add 'command #:label name
             #:command (lambda () (set-module name))))
-        (directory "project/")))
+         (directory "project/")))
           
 
   (define (reset-current-frame)
@@ -464,6 +495,7 @@
     
     (tk/pack current-frame))
 
+  
   (define (draw-new-func-window)
     (reset-current-frame)
     (define name (make-entry current-frame "Name" "")) ;;(make-prototype-area current-frame))
@@ -517,6 +549,10 @@
 )
 
 
+
+;;___________________________________________________________________________;;
+;; Test Code
+;;___________________________________________________________________________;;
 
 (define m (make-module 'math))
 (time (m 'eval-times 1000))
