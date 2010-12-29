@@ -1,5 +1,5 @@
 ;; Evo
-;; Written for:  Chicken Scheme - Version 4.5.5
+;; Written for:  Chicken Scheme - Version 4.6.3
 ;; Copyright:  Jack Trades 2010
 ;; Licence:  Not yet licenced
 ;; (load "evo.chicken")
@@ -60,7 +60,7 @@
 (require-extension tk)        ;; GUI
 (require-extension posix)     ;; GUI - Building a list of modules
 (require-extension srfi-1)
-
+(require-extension srfi-69)   ;; hash-table-keys
 
 
 ;;___________________________________________________________________________;;
@@ -552,6 +552,7 @@
 
 ;;___________________________________________________________________________;;
 ;; Test Code
+;; (load "evo.chicken")
 ;;___________________________________________________________________________;;
 
 (define m (make-module 'math))
