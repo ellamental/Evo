@@ -1,9 +1,27 @@
+;;___________________________________________________________________________;;
 ;; Evo
 ;; Written for:  Chicken Scheme - Version 4.6.3
-;; Copyright:  Jack Trades 2010
-;; Licence:  Not yet licenced
+;; Copyright:  Jack Trades 2010-2011
+;; Licence:  GNU Affero
 ;; (load "evo.chicken")
 ;; 
+;;___________________________________________________________________________;;
+;;
+;; Evo is free software: you can redistribute it and/or
+;; modify it under the terms of the GNU Affero General Public
+;; License version 3 as published by the Free Software Foundation.
+;;
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+;; GNU Affero General Public License version 3 for more details.
+;;
+;; You should have received a copy of the GNU Affero General Public
+;; License version 3 along with this program. If not, see
+;; <http://www.gnu.org/licenses/>.
+;;
+;;___________________________________________________________________________;;
+;;
 ;; Evo is an evolutionary search based function optimizer.  Evo provides an
 ;; interface for defining new modules and functions as well as an evolutionary 
 ;; programming based method for optimizing those functions.
@@ -556,7 +574,7 @@
 ;;___________________________________________________________________________;;
 
 (define m (make-module 'math))
-(time (m 'eval-times 1000))
+(time (m 'eval-times 10000))
 
 (define f (make-func (m 'get-func 'plus)))
 ;(time (f 'eval-times 1000))
